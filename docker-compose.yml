@@ -1,0 +1,75 @@
+services:
+
+  # ── Local DynamoDB ──────────────────────────────────────────────────────────
+  dynamo:
+    image: amazon/dynamodb-local
+    container_name: rm-dynamo
+    ports:
+      - "8000:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    healthcheck:
+      # DynamoDB local returns HTTP 400 on GET / — use TCP-level check instead
+      test: ["CMD-SHELL", "timeout 1 bash -c 'cat < /dev/null > /dev/tcp/localhost/8000'"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 3s
+
+  # ── Table creation + cache seed (runs once, then exits) ────────────────────
+  dynamo-init:
+    image: python:3.11-slim
+    container_name: rm-dynamo-init
+    depends_on:
+      dynamo:
+        condition: service_healthy
+    environment:
+      AWS_ENDPOINT_URL: http://dynamo:8000
+      AWS_ACCESS_KEY_ID: fake
+      AWS_SECRET_ACCESS_KEY: fake
+      AWS_REGION: us-east-1
+    volumes:
+      - ./lambda/scripts:/scripts:ro
+    command: >
+      sh -c "pip install boto3 -q &&
+             python /scripts/create_tables.py &&
+             python /scripts/seed_cache.py"
+
+  # ── Lambda (Python prediction engine) ─────────────────────────────────────
+  lambda:
+    build:
+      context: ./lambda
+    container_name: rm-lambda
+    ports:
+      - "9000:8080"
+    depends_on:
+      dynamo-init:
+        condition: service_completed_successfully
+    environment:
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: fake
+      AWS_SECRET_ACCESS_KEY: fake
+      AWS_ENDPOINT_URL: http://dynamo:8000
+      DYNAMODB_CACHE_TABLE: prediction_cache
+      DYNAMODB_JOBS_TABLE: prediction_jobs
+
+  # ── Next.js frontend ───────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+    container_name: rm-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - lambda
+      - dynamo
+    environment:
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: fake
+      AWS_SECRET_ACCESS_KEY: fake
+      AWS_ENDPOINT_URL: http://dynamo:8000
+      DYNAMODB_JOBS_TABLE: prediction_jobs
+      DYNAMODB_CACHE_TABLE: prediction_cache
+      LAMBDA_MODE: local
+      LAMBDA_ENDPOINT: http://lambda:8080
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: dev-secret-change-in-prod
