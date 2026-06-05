@@ -1,6 +1,7 @@
+import json
 import logging
 
-from fastapi import BackgroundTasks, FastAPI
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from pydantic import BaseModel
 
 from src import admet, assembler, binding, cache, cellline, offtarget, tanimoto, validator
@@ -8,15 +9,15 @@ from src import admet, assembler, binding, cache, cellline, offtarget, tanimoto,
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(title="ReceptorMapper")
+app = FastAPI(title="ReceptorMapper", version="1.0.0")
 
 
 class PredictRequest(BaseModel):
-    job_id: str
     smiles: str
     target_sequence: str
     model: str = "MPNN_CNN_BindingDB_IC50"
     cell_panel: str = "lung"
+    job_name: str = ""
 
 
 def _run_prediction(job_id: str, smiles: str, target_seq: str, model_name: str, cell_panel: str) -> None:
@@ -66,12 +67,47 @@ def health():
 
 @app.post("/predict", status_code=202)
 def predict(req: PredictRequest, background_tasks: BackgroundTasks):
+    job_id = cache.create_job(
+        req.smiles.strip(),
+        req.target_sequence.strip(),
+        req.model,
+        req.cell_panel,
+        req.job_name,
+    )
     background_tasks.add_task(
         _run_prediction,
-        req.job_id,
+        job_id,
         req.smiles.strip(),
         req.target_sequence.strip(),
         req.model,
         req.cell_panel,
     )
-    return {"status": "queued", "job_id": req.job_id}
+    return {"status": "queued", "job_id": job_id}
+
+
+@app.get("/jobs")
+def list_jobs():
+    return {"jobs": cache.get_recent_jobs(10)}
+
+
+@app.get("/jobs/{job_id}")
+def get_job(job_id: str):
+    job = cache.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    status = job.get("status")
+    if status == "complete":
+        return {
+            "status": "complete",
+            "result": json.loads(job["result"]),
+            "meta": {
+                "smiles": job.get("smiles"),
+                "target": job.get("target"),
+                "model": job.get("model"),
+                "cell_panel": job.get("cell_panel"),
+            },
+        }
+    if status == "failed":
+        return {"status": "failed", "error": job.get("error")}
+    return {"status": status}

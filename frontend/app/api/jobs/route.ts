@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
-import { getRecentJobs } from "@/lib/dynamo";
+
+const FASTAPI = (process.env.FASTAPI_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
 export async function GET() {
   try {
-    const jobs = await getRecentJobs(10);
-    return NextResponse.json({ jobs });
+    const res = await fetch(`${FASTAPI}/jobs`);
+    const data = await res.json();
+    return NextResponse.json(data);
   } catch {
     return NextResponse.json({ jobs: [] });
   }

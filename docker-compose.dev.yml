@@ -22,7 +22,7 @@ services:
   # ── FastAPI prediction server ───────────────────────────────────────────────
   api:
     build:
-      context: ./lambda
+      context: ./api
     image: receptormapper-api
     container_name: rm-api
     networks: [rm-net]
