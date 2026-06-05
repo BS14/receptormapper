@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import "./globals.css";
-import DNAHelix from "@/components/DNAHelix";
 
 export const metadata: Metadata = {
   title: "ReceptorMapper",
@@ -22,7 +21,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="bg-stone-50">
       <body className="min-h-screen bg-stone-50 text-stone-800 antialiased flex flex-col relative">
-        <DNAHelix />
+        {/* DNA Helix decoration on left side */}
+        <div className="fixed left-0 top-0 h-full w-80 pointer-events-none z-0 opacity-40">
+          <Image
+            src="/dna-helix.png"
+            alt=""
+            fill
+            className="object-cover object-right"
+            priority
+          />
+        </div>
         
         <header className="border-b border-stone-200 px-6 py-4 bg-white/80 backdrop-blur-sm relative z-10">
           <div className="flex items-center gap-3">
