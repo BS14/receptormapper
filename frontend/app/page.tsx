@@ -136,11 +136,11 @@ export default function HomePage() {
               onChange={(e) => setModel(e.target.value)}
               className="w-full rounded-md bg-white border border-stone-300 px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
             >
-              <optgroup label="── DeepPurpose ─────────">
-                <option value="MPNN_CNN_BindingDB_IC50">MPNN-CNN · BindingDB IC50</option>
+              <optgroup label="DeepPurpose">
+                <option value="MPNN_CNN_BindingDB_IC50">MPNN-CNN - BindingDB IC50</option>
               </optgroup>
-              <optgroup label="── TDC / PyTDC ─────────">
-                <option value="TDC_DeepDTA_DAVIS">DeepDTA · DAVIS Kd</option>
+              <optgroup label="TDC / PyTDC">
+                <option value="TDC_DeepDTA_DAVIS">DeepDTA - DAVIS Kd</option>
               </optgroup>
             </select>
             {MODEL_INFO[model] && (
