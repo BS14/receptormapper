@@ -221,3 +221,11 @@ __marimo__/
 .env.local
 .env.prod
 .env.frontend.local
+
+# Terraform
+infra/.terraform/
+infra/.terraform.lock.hcl
+infra/terraform.tfvars
+infra/terraform.tfstate
+infra/terraform.tfstate.backup
+infra/*.tfplan
