@@ -62,19 +62,21 @@ def set(smiles: str, target: str, model: str, result: dict, cell_panel: str = "l
         logger.exception("Cache set failed for key %s", key[:16])
 
 
+_JOB_TTL_SECS = 86400  # 24 hours
+
+
 def write_job_complete(job_id: str, result: dict) -> None:
     try:
         table = _db().Table(_JOBS_TABLE)
         table.update_item(
             Key={"job_id": job_id},
-            UpdateExpression=(
-                "SET #s = :s, #r = :r, completed_at = :ca"
-            ),
-            ExpressionAttributeNames={"#s": "status", "#r": "result"},
+            UpdateExpression="SET #s = :s, #r = :r, completed_at = :ca, #ttl = :ttl",
+            ExpressionAttributeNames={"#s": "status", "#r": "result", "#ttl": "ttl"},
             ExpressionAttributeValues={
                 ":s": "complete",
                 ":r": json.dumps(result),
                 ":ca": int(time.time()),
+                ":ttl": int(time.time()) + _JOB_TTL_SECS,
             },
         )
     except Exception:
@@ -86,12 +88,13 @@ def write_job_failed(job_id: str, message: str) -> None:
         table = _db().Table(_JOBS_TABLE)
         table.update_item(
             Key={"job_id": job_id},
-            UpdateExpression="SET #s = :s, #e = :e, completed_at = :ca",
-            ExpressionAttributeNames={"#s": "status", "#e": "error"},
+            UpdateExpression="SET #s = :s, #e = :e, completed_at = :ca, #ttl = :ttl",
+            ExpressionAttributeNames={"#s": "status", "#e": "error", "#ttl": "ttl"},
             ExpressionAttributeValues={
                 ":s": "failed",
                 ":e": message,
                 ":ca": int(time.time()),
+                ":ttl": int(time.time()) + _JOB_TTL_SECS,
             },
         )
     except Exception:

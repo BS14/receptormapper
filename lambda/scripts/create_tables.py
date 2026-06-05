@@ -53,14 +53,15 @@ def create_table(name: str, pk: str, gsi: dict | None = None):
 create_table("prediction_jobs", "job_id", gsi={"name": "user_id-index", "key": "user_id"})
 create_table("prediction_cache", "cache_key")
 
-# Enable TTL on prediction_cache
-try:
-    dynamo.update_time_to_live(
-        TableName="prediction_cache",
-        TimeToLiveSpecification={"Enabled": True, "AttributeName": "ttl"},
-    )
-    print("TTL enabled on prediction_cache")
-except ClientError:
-    pass  # Local DynamoDB may not support TTL — ignore
+# Enable TTL on both tables
+for table_name, attr in [("prediction_jobs", "ttl"), ("prediction_cache", "ttl")]:
+    try:
+        dynamo.update_time_to_live(
+            TableName=table_name,
+            TimeToLiveSpecification={"Enabled": True, "AttributeName": attr},
+        )
+        print(f"TTL enabled on {table_name}")
+    except ClientError:
+        pass  # Local DynamoDB may not support TTL — ignore
 
 print("Done.")

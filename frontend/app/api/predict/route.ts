@@ -23,6 +23,8 @@ export async function POST(req: NextRequest) {
   const target = (body.target_sequence ?? "").trim();
   const model = body.model ?? "MPNN_CNN_BindingDB_IC50";
   const cellPanel = body.cell_panel ?? "lung";
+  const rawName = (body.compound_name ?? "").trim();
+  const jobName = rawName || (smiles.length > 20 ? smiles.slice(0, 20) + "…" : smiles);
 
   if (!smiles || !target) {
     return NextResponse.json(
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
 
   const jobId = uuidv4();
   try {
-    await createJob({ job_id: jobId, smiles, target, model, cell_panel: cellPanel });
+    await createJob({ job_id: jobId, smiles, target, model, cell_panel: cellPanel, job_name: jobName });
   } catch (err) {
     return NextResponse.json({ error: "Failed to create job" }, { status: 500 });
   }

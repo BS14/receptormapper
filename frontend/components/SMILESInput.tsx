@@ -14,9 +14,10 @@ const PUBCHEM = (smiles: string) =>
 interface Props {
   value: string;
   onChange: (v: string) => void;
+  onNameChange?: (name: string | null) => void;
 }
 
-export default function SMILESInput({ value, onChange }: Props) {
+export default function SMILESInput({ value, onChange, onNameChange }: Props) {
   const [info, setInfo] = useState<CompoundInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -27,6 +28,7 @@ export default function SMILESInput({ value, onChange }: Props) {
     if (!value || value.length < 3) {
       setInfo(null);
       setLoading(false);
+      onNameChange?.(null);
       return;
     }
 
@@ -34,12 +36,15 @@ export default function SMILESInput({ value, onChange }: Props) {
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await fetch(PUBCHEM(value));
-        if (!res.ok) { setInfo({ name: null, iupac: null }); return; }
+        if (!res.ok) { setInfo({ name: null, iupac: null }); onNameChange?.(null); return; }
         const data = await res.json();
         const props = data?.PropertyTable?.Properties?.[0];
-        setInfo({ name: props?.Title ?? null, iupac: props?.IUPACName ?? null });
+        const name = props?.Title ?? null;
+        setInfo({ name, iupac: props?.IUPACName ?? null });
+        onNameChange?.(name);
       } catch {
         setInfo({ name: null, iupac: null });
+        onNameChange?.(null);
       } finally {
         setLoading(false);
       }
