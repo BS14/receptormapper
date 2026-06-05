@@ -81,8 +81,8 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
   if (error) {
     return (
       <div className="max-w-xl mx-auto mt-20 text-center space-y-4">
-        <p className="text-red-400 text-sm bg-red-950 border border-red-800 rounded px-4 py-3">{error}</p>
-        <button onClick={() => router.push("/")} className="text-sm text-indigo-400 hover:underline">
+        <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded px-4 py-3">{error}</p>
+        <button onClick={() => router.push("/")} className="text-sm text-green-700 hover:underline">
           ← Back to submission
         </button>
       </div>
@@ -93,10 +93,10 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
     return (
       <div className="max-w-xl mx-auto mt-24 text-center space-y-3">
         <div className="flex justify-center">
-          <div className="h-8 w-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+          <div className="h-8 w-8 rounded-full border-2 border-green-600 border-t-transparent animate-spin" />
         </div>
-        <p className="text-sm text-gray-400 capitalize">{status}…</p>
-        <p className="text-xs text-gray-600">Polling every 2 s</p>
+        <p className="text-sm text-stone-500 capitalize">{status}…</p>
+        <p className="text-xs text-stone-400">Polling every 2 s</p>
       </div>
     );
   }
@@ -106,15 +106,15 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Prediction Results</h1>
+          <h1 className="text-xl font-bold text-stone-800">Prediction Results</h1>
           {jobId !== "cache" && (
-            <p className="text-xs text-gray-500 font-mono mt-0.5">job {jobId}</p>
+            <p className="text-xs text-stone-500 font-mono mt-0.5">job {jobId}</p>
           )}
         </div>
         <div className="no-print flex items-center gap-3">
           <button
             onClick={handleDownloadPDF}
-            className="flex items-center gap-2 px-4 py-2 rounded-md bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm text-gray-200 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-md bg-white hover:bg-stone-50 border border-stone-300 text-sm text-stone-700 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -122,7 +122,7 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
             </svg>
             Print / Save PDF
           </button>
-          <button onClick={() => router.push("/")} className="text-sm text-indigo-400 hover:underline">
+          <button onClick={() => router.push("/")} className="text-sm text-green-700 hover:underline">
             ← New prediction
           </button>
         </div>
@@ -137,10 +137,10 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
               key={i}
               className={`flex gap-3 items-start rounded-md px-4 py-3 text-sm border ${
                 f.level === "danger"
-                  ? "bg-red-950 border-red-800 text-red-300"
+                  ? "bg-red-50 border-red-200 text-red-700"
                   : f.level === "warning"
-                  ? "bg-yellow-950 border-yellow-800 text-yellow-300"
-                  : "bg-blue-950 border-blue-800 text-blue-300"
+                  ? "bg-yellow-50 border-yellow-200 text-yellow-700"
+                  : "bg-blue-50 border-blue-200 text-blue-700"
               }`}
             >
               <span className="font-semibold uppercase text-xs shrink-0 mt-0.5">{f.level}</span>
@@ -159,9 +159,9 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
       <CellLineSensitivityGrid entries={result.cellline} />
 
       {/* Citations */}
-      <div className="border-t border-gray-800 pt-6 space-y-2">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">References</p>
-        <ol className="list-decimal list-inside space-y-1.5 text-xs text-gray-500 leading-relaxed">
+      <div className="border-t border-stone-200 pt-6 space-y-2">
+        <p className="text-xs font-semibold text-stone-500 uppercase tracking-widest">References</p>
+        <ol className="list-decimal list-inside space-y-1.5 text-xs text-stone-500 leading-relaxed">
           <li>
             Huang, K., Fu, T., Glass, L. M., Zitnik, M., Xiao, C., &amp; Sun, J. (2020).{" "}
             <span className="italic">DeepPurpose: A Deep Learning Library for Drug-Target Interaction Prediction.</span>{" "}

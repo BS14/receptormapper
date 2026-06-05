@@ -6,18 +6,18 @@ interface Props {
 }
 
 const STRENGTH_COLOR: Record<string, string> = {
-  strong: "text-green-400",
-  moderate: "text-yellow-400",
-  weak: "text-gray-400",
+  strong: "text-green-600",
+  moderate: "text-yellow-600",
+  weak: "text-stone-400",
 };
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="space-y-0.5">
-      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
-      <p className="text-lg font-semibold text-white">
+      <p className="text-xs text-stone-500 uppercase tracking-wide">{label}</p>
+      <p className="text-lg font-semibold text-stone-800">
         {value}
-        {sub && <span className="text-xs text-gray-500 ml-1">{sub}</span>}
+        {sub && <span className="text-xs text-stone-500 ml-1">{sub}</span>}
       </p>
     </div>
   );
@@ -27,12 +27,12 @@ export default function BindingAffinityCard({ binding, tanimoto }: Props) {
   const confidencePct = Math.round(binding.confidence * 100);
 
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-900 p-5 space-y-4">
+    <div className="rounded-lg border border-stone-200 bg-white p-5 space-y-4 shadow-sm">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
+        <h2 className="text-sm font-semibold text-stone-600 uppercase tracking-wide">
           Binding Affinity
         </h2>
-        <span className={`text-sm font-bold capitalize ${STRENGTH_COLOR[binding.strength] ?? "text-gray-400"}`}>
+        <span className={`text-sm font-bold capitalize ${STRENGTH_COLOR[binding.strength] ?? "text-stone-400"}`}>
           {binding.strength}
         </span>
       </div>
@@ -48,26 +48,26 @@ export default function BindingAffinityCard({ binding, tanimoto }: Props) {
       </div>
 
       <div className="space-y-1">
-        <div className="flex justify-between text-xs text-gray-500">
+        <div className="flex justify-between text-xs text-stone-500">
           <span>Confidence</span>
           <span>{confidencePct}%</span>
         </div>
-        <div className="h-1.5 rounded-full bg-gray-800">
+        <div className="h-1.5 rounded-full bg-stone-200">
           <div
-            className="h-full rounded-full bg-indigo-500 transition-all"
+            className="h-full rounded-full bg-green-500 transition-all"
             style={{ width: `${confidencePct}%` }}
           />
         </div>
         {tanimoto.extrapolation_risk && (
-          <p className="text-xs text-yellow-500 mt-1">
+          <p className="text-xs text-yellow-600 mt-1">
             Low training similarity ({tanimoto.max_tanimoto.toFixed(2)}) — extrapolation
           </p>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-800 text-xs text-gray-500">
-        <span>Max Tanimoto: <span className="text-gray-300">{tanimoto.max_tanimoto.toFixed(3)}</span></span>
-        <span>Top-10 mean: <span className="text-gray-300">{tanimoto.mean_top10.toFixed(3)}</span></span>
+      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-stone-200 text-xs text-stone-500">
+        <span>Max Tanimoto: <span className="text-stone-700">{tanimoto.max_tanimoto.toFixed(3)}</span></span>
+        <span>Top-10 mean: <span className="text-stone-700">{tanimoto.mean_top10.toFixed(3)}</span></span>
       </div>
     </div>
   );
