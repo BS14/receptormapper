@@ -23,7 +23,7 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
   const [status, setStatus] = useState<string>("queued");
   const [error, setError] = useState<string | null>(null);
   const [compoundName, setCompoundName] = useState<string | null>(null);
-  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false); // kept for type compat, unused
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch compound name once meta is available
@@ -74,21 +74,8 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
     return () => clearInterval(intervalRef.current!);
   }, [jobId, router]);
 
-  async function handleDownloadPDF() {
-    if (!result || !meta) return;
-    setPdfLoading(true);
-    try {
-      // Grab the molecule canvas data URL if rendered
-      const canvas = document.querySelector<HTMLCanvasElement>("canvas");
-      const molDataUrl = canvas ? canvas.toDataURL("image/png") : null;
-
-      const { generatePDF } = await import("@/lib/generatePDF");
-      await generatePDF(meta, result, compoundName, molDataUrl);
-    } catch (e) {
-      console.error("PDF generation failed", e);
-    } finally {
-      setPdfLoading(false);
-    }
+  function handleDownloadPDF() {
+    window.print();
   }
 
   if (error) {
@@ -124,26 +111,16 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
             <p className="text-xs text-gray-500 font-mono mt-0.5">job {jobId}</p>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="no-print flex items-center gap-3">
           <button
             onClick={handleDownloadPDF}
-            disabled={pdfLoading}
-            className="flex items-center gap-2 px-4 py-2 rounded-md bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-md bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm text-gray-200 transition-colors"
           >
-            {pdfLoading ? (
-              <>
-                <span className="inline-block w-4 h-4 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
-                Generating…
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                </svg>
-                Download PDF
-              </>
-            )}
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            Print / Save PDF
           </button>
           <button onClick={() => router.push("/")} className="text-sm text-indigo-400 hover:underline">
             ← New prediction
@@ -180,6 +157,32 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
 
       <OffTargetTable entries={result.offtarget} />
       <CellLineSensitivityGrid entries={result.cellline} />
+
+      {/* Citations */}
+      <div className="border-t border-gray-800 pt-6 space-y-2">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">References</p>
+        <ol className="list-decimal list-inside space-y-1.5 text-xs text-gray-500 leading-relaxed">
+          <li>
+            Huang, K., Fu, T., Glass, L. M., Zitnik, M., Xiao, C., &amp; Sun, J. (2020).{" "}
+            <span className="italic">DeepPurpose: A Deep Learning Library for Drug-Target Interaction Prediction.</span>{" "}
+            Bioinformatics.
+          </li>
+          {meta?.model?.startsWith("TDC_") && (
+            <>
+              <li>
+                Huang, K., Fu, T., Gao, W., Zhao, Y., Roohani, Y., Leskovec, J., Coley, C. W., Xiao, C., Sun, J., &amp; Zitnik, M. (2021).{" "}
+                <span className="italic">Therapeutics Data Commons: Machine Learning Datasets and Tasks for Drug Discovery and Development.</span>{" "}
+                NeurIPS Datasets and Benchmarks.
+              </li>
+              <li>
+                Huang, K., Fu, T., Gao, W., Zhao, Y., Roohani, Y., Leskovec, J., Coley, C. W., Xiao, C., Sun, J., &amp; Zitnik, M. (2022).{" "}
+                <span className="italic">Artificial intelligence foundation for therapeutic science.</span>{" "}
+                Nature Chemical Biology.
+              </li>
+            </>
+          )}
+        </ol>
+      </div>
     </div>
   );
 }
