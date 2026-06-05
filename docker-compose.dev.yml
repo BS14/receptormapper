@@ -31,13 +31,7 @@ services:
     depends_on:
       dynamo:
         condition: service_healthy
-    environment:
-      AWS_REGION: us-east-1
-      AWS_ACCESS_KEY_ID: fake
-      AWS_SECRET_ACCESS_KEY: fake
-      AWS_ENDPOINT_URL: http://dynamo:8000
-      DYNAMODB_CACHE_TABLE: prediction_cache
-      DYNAMODB_JOBS_TABLE: prediction_jobs
+    env_file: .env.local
 
   # ── Next.js frontend ───────────────────────────────────────────────────────
   frontend:
@@ -50,13 +44,4 @@ services:
       - "3000:3000"
     depends_on:
       - api
-    environment:
-      AWS_REGION: us-east-1
-      AWS_ACCESS_KEY_ID: fake
-      AWS_SECRET_ACCESS_KEY: fake
-      AWS_ENDPOINT_URL: http://dynamo:8000
-      DYNAMODB_JOBS_TABLE: prediction_jobs
-      DYNAMODB_CACHE_TABLE: prediction_cache
-      FASTAPI_URL: http://api:8000
-      NEXTAUTH_URL: http://localhost:3000
-      NEXTAUTH_SECRET: dev-secret-change-in-prod
+    env_file: .env.local
