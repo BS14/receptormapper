@@ -1,0 +1,48 @@
+# Production API stack — FastAPI + Nginx
+# Uses real AWS DynamoDB via EC2 instance IAM role (no credentials needed)
+# Frontend is deployed separately on Vercel
+#
+# Required env vars (set in .env.prod or export before running):
+#   AWS_REGION
+#   DYNAMODB_JOBS_TABLE   (default: prediction_jobs)
+#   DYNAMODB_CACHE_TABLE  (default: prediction_cache)
+#
+# SSL certs must be placed at:
+#   nginx/ssl/cert.pem
+#   nginx/ssl/key.pem
+
+networks:
+  rm-prod-net:
+    driver: bridge
+
+services:
+
+  # ── FastAPI prediction server ───────────────────────────────────────────────
+  api:
+    build:
+      context: ./lambda
+    image: receptormapper-api
+    container_name: rm-api
+    restart: unless-stopped
+    networks: [rm-prod-net]
+    environment:
+      AWS_REGION: ${AWS_REGION}
+      DYNAMODB_JOBS_TABLE: ${DYNAMODB_JOBS_TABLE:-prediction_jobs}
+      DYNAMODB_CACHE_TABLE: ${DYNAMODB_CACHE_TABLE:-prediction_cache}
+    # No AWS_ENDPOINT_URL → entrypoint skips local DynamoDB setup
+    # No AWS keys → SDK uses EC2 instance IAM role automatically
+
+  # ── Nginx reverse proxy ─────────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: rm-nginx
+    restart: unless-stopped
+    networks: [rm-prod-net]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api

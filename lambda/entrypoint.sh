@@ -1,8 +1,10 @@
 #!/bin/sh
 set -e
 
-echo "Waiting for DynamoDB at $AWS_ENDPOINT_URL..."
-until python -c "
+# Local dev only: wait for DynamoDB, create tables, seed cache
+if [ -n "$AWS_ENDPOINT_URL" ]; then
+  echo "Waiting for DynamoDB at $AWS_ENDPOINT_URL..."
+  until python -c "
 import boto3, os
 boto3.client('dynamodb',
     endpoint_url=os.environ['AWS_ENDPOINT_URL'],
@@ -13,13 +15,14 @@ boto3.client('dynamodb',
 " 2>/dev/null; do
     echo "  DynamoDB not ready — retrying in 2s..."
     sleep 2
-done
+  done
 
-echo "DynamoDB ready. Creating tables..."
-python /app/scripts/create_tables.py
+  echo "DynamoDB ready. Creating tables..."
+  python /app/scripts/create_tables.py
 
-echo "Seeding cache..."
-python /app/scripts/seed_cache.py
+  echo "Seeding cache..."
+  python /app/scripts/seed_cache.py
+fi
 
 echo "Starting ReceptorMapper API..."
 exec uvicorn main:app --host 0.0.0.0 --port 8000
