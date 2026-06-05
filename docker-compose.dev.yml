@@ -44,4 +44,4 @@ services:
       - "3000:3000"
     depends_on:
       - api
-    env_file: .env.local
+    env_file: .env.frontend.local
