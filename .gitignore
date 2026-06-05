@@ -230,7 +230,12 @@ infra/terraform.tfstate
 infra/terraform.tfstate.backup
 infra/*.tfplan
 
-# Node
+# Node — belt-and-suspenders (frontend/.gitignore handles these too)
 node_modules/
-frontend/.next/
-frontend/out/
+.next/
+out/
+*.tsbuildinfo
+npm-debug.log*
+
+# macOS
+.DS_Store

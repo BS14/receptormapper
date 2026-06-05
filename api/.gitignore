@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Model weights (too large for git — bake into Docker image at build time)
+models/MPNN_CNN_BindingDB/
+models/offtarget_panel/train_fps.pkl
+
+# Env
+.env
+.env.local
+
+# Misc
+.DS_Store
+*.log
