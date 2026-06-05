@@ -4,6 +4,21 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import SMILESInput from "@/components/SMILESInput";
 
+const MODEL_INFO: Record<string, { label: string; framework: string; dataset: string; note: string }> = {
+  MPNN_CNN_BindingDB_IC50: {
+    label: "MPNN-CNN",
+    framework: "DeepPurpose",
+    dataset: "BindingDB IC50",
+    note: "Message-passing drug encoder + CNN protein encoder",
+  },
+  TDC_DeepDTA_DAVIS: {
+    label: "DeepDTA",
+    framework: "TDC / PyTDC",
+    dataset: "DAVIS Kd",
+    note: "CNN drug + CNN protein encoder, trained on kinase panel",
+  },
+};
+
 const EXAMPLE_SMILES = [
   { label: "Paracetamol", value: "CC(=O)Nc1ccc(O)cc1" },
   { label: "Erlotinib", value: "C#Cc1cccc(Nc2ncnc3cc(OCC)c(OCC)cc23)c1" },
@@ -121,8 +136,20 @@ export default function HomePage() {
               onChange={(e) => setModel(e.target.value)}
               className="w-full rounded-md bg-gray-900 border border-gray-700 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-indigo-500"
             >
-              <option value="MPNN_CNN_BindingDB_IC50">MPNN-CNN BindingDB IC50</option>
+              <optgroup label="── DeepPurpose ─────────">
+                <option value="MPNN_CNN_BindingDB_IC50">MPNN-CNN · BindingDB IC50</option>
+              </optgroup>
+              <optgroup label="── TDC / PyTDC ─────────">
+                <option value="TDC_DeepDTA_DAVIS">DeepDTA · DAVIS Kd</option>
+              </optgroup>
             </select>
+            {MODEL_INFO[model] && (
+              <p className="text-xs text-gray-500 mt-1">
+                <span className="text-indigo-400 font-medium">{MODEL_INFO[model].framework}</span>
+                {" · "}{MODEL_INFO[model].dataset}
+                {" — "}{MODEL_INFO[model].note}
+              </p>
+            )}
           </div>
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-300">Cell Line Panel</label>

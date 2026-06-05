@@ -1,7 +1,6 @@
-FROM public.ecr.aws/lambda/python:3.11
+FROM python:3.11-slim
 
-# The Lambda AL2 base has no C compiler — every package must ship a pre-built
-# wheel. numpy>=2.0 dropped manylinux2014 wheels, so we pin below 2.0.
+WORKDIR /app
 
 RUN pip install --no-cache-dir --prefer-binary \
     boto3 \
@@ -19,7 +18,17 @@ RUN pip install --no-cache-dir --prefer-binary \
 
 RUN pip install --no-cache-dir --prefer-binary DeepPurpose
 
-COPY src/ ${LAMBDA_TASK_ROOT}/src/
-COPY models/ ${LAMBDA_TASK_ROOT}/models/
+RUN pip install --no-cache-dir PyTDC
 
-CMD ["src.handler.lambda_handler"]
+RUN pip install --no-cache-dir fastapi "uvicorn[standard]"
+
+COPY src/ /app/src/
+COPY models/ /app/models/
+COPY scripts/ /app/scripts/
+COPY main.py /app/main.py
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+EXPOSE 8000
+
+CMD ["/app/entrypoint.sh"]
