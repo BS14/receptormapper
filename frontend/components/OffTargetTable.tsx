@@ -5,24 +5,24 @@ interface Props {
 }
 
 const RISK_BADGE: Record<string, string> = {
-  high: "bg-red-950 text-red-400 border border-red-800",
-  medium: "bg-yellow-950 text-yellow-400 border border-yellow-800",
-  low: "bg-gray-800 text-gray-400 border border-gray-700",
-  unknown: "bg-gray-800 text-gray-500 border border-gray-700",
+  high: "bg-red-50 text-red-700 border border-red-200",
+  medium: "bg-yellow-50 text-yellow-700 border border-yellow-200",
+  low: "bg-stone-100 text-stone-600 border border-stone-200",
+  unknown: "bg-stone-100 text-stone-500 border border-stone-200",
 };
 
 export default function OffTargetTable({ entries }: Props) {
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-900 overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-800">
-        <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
+    <div className="rounded-lg border border-stone-200 bg-white overflow-hidden shadow-sm">
+      <div className="px-5 py-3 border-b border-stone-200 bg-stone-50">
+        <h2 className="text-sm font-semibold text-stone-600 uppercase tracking-wide">
           Off-Target Panel ({entries.length} proteins)
         </h2>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-xs text-gray-500 uppercase tracking-wide border-b border-gray-800">
+            <tr className="text-xs text-stone-500 uppercase tracking-wide border-b border-stone-200 bg-stone-50">
               <th className="text-left px-5 py-2">Protein</th>
               <th className="text-left px-5 py-2">Family</th>
               <th className="text-right px-5 py-2">pIC50</th>
@@ -30,12 +30,12 @@ export default function OffTargetTable({ entries }: Props) {
               <th className="text-center px-5 py-2">Flag</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800">
+          <tbody className="divide-y divide-stone-100">
             {entries.map((e) => (
-              <tr key={e.name} className="hover:bg-gray-800/50 transition-colors">
-                <td className="px-5 py-2 font-medium text-gray-200">{e.name}</td>
-                <td className="px-5 py-2 text-gray-500">{e.family}</td>
-                <td className="px-5 py-2 text-right font-mono text-gray-300">
+              <tr key={e.name} className="hover:bg-stone-50 transition-colors">
+                <td className="px-5 py-2 font-medium text-stone-800">{e.name}</td>
+                <td className="px-5 py-2 text-stone-500">{e.family}</td>
+                <td className="px-5 py-2 text-right font-mono text-stone-700">
                   {e.pic50.toFixed(2)}
                 </td>
                 <td className="px-5 py-2 text-center">
@@ -44,7 +44,7 @@ export default function OffTargetTable({ entries }: Props) {
                   </span>
                 </td>
                 <td className="px-5 py-2 text-center">
-                  {e.flag && <span className="text-red-400 text-xs font-bold">⚠</span>}
+                  {e.flag && <span className="text-red-600 text-xs font-bold">⚠</span>}
                 </td>
               </tr>
             ))}

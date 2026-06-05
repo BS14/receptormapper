@@ -75,8 +75,8 @@ export default function HomePage() {
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-white">Drug-Target Interaction Prediction</h1>
-        <p className="mt-1 text-sm text-gray-400">
+        <h1 className="text-2xl font-bold text-stone-800">Drug-Target Interaction Prediction</h1>
+        <p className="mt-1 text-sm text-stone-500">
           Submit a SMILES string and protein target to predict binding affinity,
           off-target effects, cell-line sensitivity, and ADMET properties.
         </p>
@@ -84,7 +84,7 @@ export default function HomePage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-300">
+          <label className="block text-sm font-medium text-stone-700">
             SMILES String
           </label>
           <div className="flex flex-wrap gap-2 mb-2">
@@ -93,7 +93,7 @@ export default function HomePage() {
                 key={ex.label}
                 type="button"
                 onClick={() => setSmiles(ex.value)}
-                className="px-2 py-0.5 text-xs rounded bg-gray-800 text-indigo-300 hover:bg-gray-700 border border-gray-700"
+                className="px-2 py-0.5 text-xs rounded bg-stone-100 text-green-700 hover:bg-stone-200 border border-stone-300"
               >
                 {ex.label}
               </button>
@@ -103,13 +103,13 @@ export default function HomePage() {
         </div>
 
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-300">
+          <label className="block text-sm font-medium text-stone-700">
             Target Protein Sequence (FASTA amino acids)
           </label>
           <button
             type="button"
             onClick={() => setTarget(EXAMPLE_TARGET)}
-            className="px-2 py-0.5 text-xs rounded bg-gray-800 text-indigo-300 hover:bg-gray-700 border border-gray-700 mb-2"
+            className="px-2 py-0.5 text-xs rounded bg-stone-100 text-green-700 hover:bg-stone-200 border border-stone-300 mb-2"
           >
             Use EGFR example
           </button>
@@ -118,45 +118,45 @@ export default function HomePage() {
             onChange={(e) => setTarget(e.target.value)}
             rows={4}
             placeholder="MRPSGTAGAALLALLAALCPAS..."
-            className="w-full rounded-md bg-gray-900 border border-gray-700 px-3 py-2 text-sm text-gray-100 font-mono placeholder-gray-600 focus:outline-none focus:border-indigo-500"
+            className="w-full rounded-md bg-white border border-stone-300 px-3 py-2 text-sm text-stone-800 font-mono placeholder-stone-400 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
           />
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-stone-500">
             {target.length} amino acids
             {target.length > 0 && target.length < 20 && (
-              <span className="text-yellow-500 ml-2">— minimum 20 required</span>
+              <span className="text-yellow-600 ml-2">— minimum 20 required</span>
             )}
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-300">Model</label>
+            <label className="block text-sm font-medium text-stone-700">Model</label>
             <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full rounded-md bg-gray-900 border border-gray-700 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-indigo-500"
+              className="w-full rounded-md bg-white border border-stone-300 px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
             >
-              <optgroup label="── DeepPurpose ─────────">
-                <option value="MPNN_CNN_BindingDB_IC50">MPNN-CNN · BindingDB IC50</option>
+              <optgroup label="DeepPurpose">
+                <option value="MPNN_CNN_BindingDB_IC50">MPNN-CNN - BindingDB IC50</option>
               </optgroup>
-              <optgroup label="── TDC / PyTDC ─────────">
-                <option value="TDC_DeepDTA_DAVIS">DeepDTA · DAVIS Kd</option>
+              <optgroup label="TDC / PyTDC">
+                <option value="TDC_DeepDTA_DAVIS">DeepDTA - DAVIS Kd</option>
               </optgroup>
             </select>
             {MODEL_INFO[model] && (
-              <p className="text-xs text-gray-500 mt-1">
-                <span className="text-indigo-400 font-medium">{MODEL_INFO[model].framework}</span>
+              <p className="text-xs text-stone-500 mt-1">
+                <span className="text-green-700 font-medium">{MODEL_INFO[model].framework}</span>
                 {" · "}{MODEL_INFO[model].dataset}
                 {" — "}{MODEL_INFO[model].note}
               </p>
             )}
           </div>
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-300">Cell Line Panel</label>
+            <label className="block text-sm font-medium text-stone-700">Cell Line Panel</label>
             <select
               value={panel}
               onChange={(e) => setPanel(e.target.value)}
-              className="w-full rounded-md bg-gray-900 border border-gray-700 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-indigo-500"
+              className="w-full rounded-md bg-white border border-stone-300 px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
             >
               <optgroup label="── Cancer ──────────────">
                 <option value="lung">Lung (12 lines)</option>
@@ -181,7 +181,7 @@ export default function HomePage() {
         </div>
 
         {error && (
-          <p className="text-sm text-red-400 bg-red-950 border border-red-800 rounded px-3 py-2">
+          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
             {error}
           </p>
         )}
@@ -189,7 +189,7 @@ export default function HomePage() {
         <button
           type="submit"
           disabled={loading || !smiles || !target}
-          className="w-full py-2.5 rounded-md bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold transition-colors"
+          className="w-full py-2.5 rounded-md bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-white transition-colors"
         >
           {loading ? "Submitting..." : "Run Prediction"}
         </button>

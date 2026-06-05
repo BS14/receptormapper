@@ -38,17 +38,17 @@ function ExpandableTarget({ sequence }: { sequence: string }) {
   const PREVIEW = 60;
 
   if (sequence.length <= PREVIEW) {
-    return <span className="text-xs font-mono text-gray-200 break-all">{sequence}</span>;
+    return <span className="text-xs font-mono text-stone-700 break-all">{sequence}</span>;
   }
 
   return (
     <div className="space-y-1">
-      <span className="text-xs font-mono text-gray-200 break-all">
+      <span className="text-xs font-mono text-stone-700 break-all">
         {expanded ? sequence : sequence.slice(0, PREVIEW) + "…"}
       </span>
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+        className="text-xs text-green-700 hover:text-green-600 transition-colors"
       >
         {expanded
           ? "▲ collapse"
@@ -80,28 +80,28 @@ export default function SubmissionInfoCard({ meta }: { meta: SubmissionMeta }) {
     {
       label: "Compound",
       content: nameLoading ? (
-        <span className="text-xs text-gray-500 italic">looking up…</span>
+        <span className="text-xs text-stone-500 italic">looking up…</span>
       ) : compoundName ? (
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-semibold text-indigo-300">{compoundName}</span>
+          <span className="text-sm font-semibold text-green-700">{compoundName}</span>
           {iupacName && (
-            <span className="text-xs text-gray-500" title={iupacName}>
+            <span className="text-xs text-stone-500" title={iupacName}>
               {truncate(iupacName, 46)}
             </span>
           )}
         </div>
       ) : iupacName ? (
-        <span className="text-xs text-gray-300" title={iupacName}>
+        <span className="text-xs text-stone-700" title={iupacName}>
           {truncate(iupacName, 60)}
         </span>
       ) : (
-        <span className="text-xs text-gray-600 italic">Not in PubChem</span>
+        <span className="text-xs text-stone-400 italic">Not in PubChem</span>
       ),
     },
     {
       label: "SMILES",
       content: (
-        <span className="text-xs font-mono text-gray-200 break-all" title={meta.smiles}>
+        <span className="text-xs font-mono text-stone-700 break-all" title={meta.smiles}>
           {truncate(meta.smiles, 52)}
         </span>
       ),
@@ -113,7 +113,7 @@ export default function SubmissionInfoCard({ meta }: { meta: SubmissionMeta }) {
     {
       label: "Model",
       content: (
-        <span className="text-xs text-gray-200">
+        <span className="text-xs text-stone-700">
           {MODEL_LABELS[meta.model] ?? meta.model}
         </span>
       ),
@@ -121,7 +121,7 @@ export default function SubmissionInfoCard({ meta }: { meta: SubmissionMeta }) {
     {
       label: "Cell Panel",
       content: (
-        <span className="text-xs text-gray-200">
+        <span className="text-xs text-stone-700">
           {PANEL_LABELS[meta.cell_panel] ?? meta.cell_panel}
         </span>
       ),
@@ -129,8 +129,8 @@ export default function SubmissionInfoCard({ meta }: { meta: SubmissionMeta }) {
   ];
 
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
-      <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-4">
+    <div className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+      <h2 className="text-sm font-semibold text-stone-600 uppercase tracking-wide mb-4">
         Submission
       </h2>
 
@@ -140,9 +140,9 @@ export default function SubmissionInfoCard({ meta }: { meta: SubmissionMeta }) {
           <table className="w-full">
             <tbody>
               {rows.map((row) => (
-                <tr key={row.label} className="border-b border-gray-800 last:border-0">
+                <tr key={row.label} className="border-b border-stone-100 last:border-0">
                   <td className="py-2.5 pr-4 align-top w-24 shrink-0">
-                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider whitespace-nowrap">
                       {row.label}
                     </span>
                   </td>
@@ -156,7 +156,7 @@ export default function SubmissionInfoCard({ meta }: { meta: SubmissionMeta }) {
         {/* 2D structure */}
         <div className="shrink-0 flex flex-col items-center gap-1">
           <MoleculeDrawing smiles={meta.smiles} width={210} height={170} />
-          <span className="text-xs text-gray-600">2D structure</span>
+          <span className="text-xs text-stone-400">2D structure</span>
         </div>
       </div>
     </div>
