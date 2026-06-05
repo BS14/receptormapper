@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,7 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="bg-stone-50">
       <body className="min-h-screen bg-stone-50 text-stone-800 antialiased flex flex-col">
         <header className="px-6 py-4">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <Image
               src="/logo.png"
               alt="ReceptorMapper Logo"
@@ -38,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 DTI Prediction Platform
               </span>
             </div>
-          </div>
+          </Link>
         </header>
 
         <main className="mx-auto max-w-6xl px-6 py-10 flex-1">{children}</main>
