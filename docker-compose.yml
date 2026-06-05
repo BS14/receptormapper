@@ -23,7 +23,7 @@ services:
   # entrypoint.sh waits for DynamoDB, creates tables, seeds cache, then starts uvicorn
   api:
     build:
-      context: ./lambda
+      context: ./api
     image: receptormapper-api
     container_name: rm-api
     networks: [rm-net]
