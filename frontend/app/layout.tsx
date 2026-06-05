@@ -21,14 +21,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="bg-stone-50">
       <body className="min-h-screen bg-stone-50 text-stone-800 antialiased flex flex-col relative">
-        {/* DNA Helix decoration - bottom left corner */}
-        <div className="fixed -left-16 bottom-0 w-72 h-[600px] pointer-events-none z-0 opacity-25">
+        {/* Molecular structure background - left side */}
+        <div className="fixed left-0 top-0 w-96 h-full pointer-events-none z-0 opacity-50">
           <Image
-            src="/dna-helix.png"
+            src="/molecular-bg.png"
             alt=""
             fill
-            className="object-contain object-bottom"
-            priority
+            className="object-cover object-left"
           />
         </div>
         
