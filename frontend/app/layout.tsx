@@ -20,18 +20,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="en" className="bg-stone-50">
-      <body className="min-h-screen bg-stone-50 text-stone-800 antialiased flex flex-col relative">
-        {/* Molecular structure background - left side */}
-        <div className="fixed left-0 top-0 w-96 h-full pointer-events-none z-0 opacity-50">
-          <Image
-            src="/molecular-bg.png"
-            alt=""
-            fill
-            className="object-cover object-left"
-          />
-        </div>
-        
-        <header className="border-b border-stone-200 px-6 py-4 bg-white/80 backdrop-blur-sm relative z-10">
+      <body className="min-h-screen bg-stone-50 text-stone-800 antialiased flex flex-col">
+        <header className="px-6 py-4">
           <div className="flex items-center gap-3">
             <Image
               src="/logo.png"
@@ -51,9 +41,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         </header>
 
-        <main className="mx-auto max-w-6xl px-6 py-10 flex-1 relative z-10">{children}</main>
+        <main className="mx-auto max-w-6xl px-6 py-10 flex-1">{children}</main>
 
-        <footer className="border-t border-stone-200 px-6 py-8 mt-auto bg-white/80 backdrop-blur-sm relative z-10">
+        <footer className="px-6 py-8 mt-auto">
           <div className="max-w-6xl mx-auto">
             <div className="flex flex-col items-center gap-6 text-center">
               <div className="flex items-center gap-3">
