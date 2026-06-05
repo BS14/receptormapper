@@ -13,8 +13,6 @@
     "next": "14.2.3",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.8.2",
     "recharts": "^2.12.4",
     "smiles-drawer": "1.1.23"
   },
