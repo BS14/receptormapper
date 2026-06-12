@@ -24,6 +24,10 @@ services:
     container_name: rm-api
     restart: unless-stopped
     networks: [rm-prod-net]
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - .env
     environment:
       AWS_REGION: ${AWS_REGION}
       DYNAMODB_JOBS_TABLE: ${DYNAMODB_JOBS_TABLE:-prediction_jobs}

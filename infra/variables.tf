@@ -1,13 +1,13 @@
 variable "aws_region" {
   description = "AWS region"
   type        = string
-  default     = "ap-south-1"
+  default     = "us-east-1"
 }
 
 variable "az" {
   description = "Single availability zone"
   type        = string
-  default     = "ap-south-1a"
+  default     = "us-east-1a"
 }
 
 variable "project" {
@@ -32,10 +32,4 @@ variable "dynamodb_cache_table" {
   description = "DynamoDB prediction cache table name"
   type        = string
   default     = "prediction_cache"
-}
-
-variable "repo_url" {
-  description = "Git repo URL to clone on the EC2 instance"
-  type        = string
-  default     = "https://github.com/BS14/receptormapper.git"
 }

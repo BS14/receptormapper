@@ -6,8 +6,6 @@ locals {
   }
 }
 
-# ── Ubuntu 24.04 LTS AMI ──────────────────────────────────────────────────────
-
 data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"] # Canonical
@@ -23,11 +21,9 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# ── VPC (community module, single AZ, public subnet only) ────────────────────
-
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
+  version = "6.6.1"
 
   name = "${var.project}-vpc"
   cidr = "10.0.0.0/16"
@@ -42,11 +38,9 @@ module "vpc" {
   tags = local.tags
 }
 
-# ── Security Group (80 + 443 inbound, SSM outbound) ───────────────────────────
-
 resource "aws_security_group" "api" {
   name        = "${var.project}-api-sg"
-  description = "Allow HTTP/HTTPS inbound. SSM handles management — no SSH port needed."
+  description = "Allow HTTP/HTTPS inbound"
   vpc_id      = module.vpc.vpc_id
 
   ingress {
@@ -66,7 +60,7 @@ resource "aws_security_group" "api" {
   }
 
   egress {
-    description = "All outbound (SSM, DynamoDB, Docker Hub, apt)"
+    description = "All outbound"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -76,11 +70,9 @@ resource "aws_security_group" "api" {
   tags = local.tags
 }
 
-# ── EC2 Instance (community module) ──────────────────────────────────────────
-
 module "ec2" {
   source  = "terraform-aws-modules/ec2-instance/aws"
-  version = "~> 5.0"
+  version = "6.4.0"
 
   name = "${var.project}-api"
 
@@ -95,22 +87,17 @@ module "ec2" {
     aws_region           = var.aws_region
     dynamodb_jobs_table  = var.dynamodb_jobs_table
     dynamodb_cache_table = var.dynamodb_cache_table
-    repo_url             = var.repo_url
   })
   user_data_replace_on_change = true
 
-  root_block_device = [
-    {
-      volume_size           = 30
-      volume_type           = "gp3"
-      delete_on_termination = true
-    }
-  ]
+  root_block_device = {
+    volume_size           = 30
+    volume_type           = "gp3"
+    delete_on_termination = true
+  }
 
   tags = local.tags
 }
-
-# ── Elastic IP ────────────────────────────────────────────────────────────────
 
 resource "aws_eip" "api" {
   instance = module.ec2.id

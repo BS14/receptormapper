@@ -1,35 +1,64 @@
 #!/bin/bash
 set -euxo pipefail
 
-# ── Install Docker ────────────────────────────────────────────────────────────
+# ── Install deps ─────────────────────────────────────────────────────────────
 apt-get update -y
-apt-get install -y docker.io docker-compose-plugin git curl openssl
+apt-get install -y ca-certificates curl gnupg git openssl nginx certbot python3-certbot-nginx
 
-systemctl enable docker
-systemctl start docker
+# ── Docker official repo (docker-compose-plugin not in ubuntu default repo) ──
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+  > /etc/apt/sources.list.d/docker.list
+
+apt-get update -y
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+systemctl enable docker nginx
+systemctl start docker nginx
 usermod -aG docker ubuntu
 
-# ── Clone repo ────────────────────────────────────────────────────────────────
-cd /home/ubuntu
-git clone ${repo_url} receptormapper
-cd receptormapper
-chown -R ubuntu:ubuntu /home/ubuntu/receptormapper
+# ── Write API env file — compose auto-loads .env from CWD ────────────────────
+DEPLOY_DIR=/home/ubuntu/receptormapper
+git clone https://github.com/BS14/receptormapper "$DEPLOY_DIR"
 
-# ── Write API env file (no AWS keys — instance role handles auth) ─────────────
-cat > .env.local <<'ENVEOF'
+cat > "$DEPLOY_DIR/.env" <<'ENVEOF'
 AWS_REGION=${aws_region}
 DYNAMODB_JOBS_TABLE=${dynamodb_jobs_table}
 DYNAMODB_CACHE_TABLE=${dynamodb_cache_table}
 ENVEOF
 
-# ── Generate self-signed SSL cert (replace with real cert for production) ─────
-mkdir -p nginx/ssl
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout nginx/ssl/key.pem \
-  -out  nginx/ssl/cert.pem \
-  -subj "/CN=receptormapper"
+chown -R ubuntu:ubuntu "$DEPLOY_DIR"
 
-# ── Start production stack (API + Nginx) ──────────────────────────────────────
-AWS_REGION=${aws_region} docker compose -f docker-compose.prod.yml up --build -d
+# ── Nginx vhost for rm-api.binaya.com.np ─────────────────────────────────────
+cat > /etc/nginx/sites-available/rm-api.binaya.com.np <<'NGINXEOF'
+server {
+    listen 80;
+    server_name rm-api.binaya.com.np;
+
+    location / {
+        proxy_pass         http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+}
+NGINXEOF
+
+ln -sf /etc/nginx/sites-available/rm-api.binaya.com.np /etc/nginx/sites-enabled/rm-api.binaya.com.np
+rm -f /etc/nginx/sites-enabled/default
+nginx -t && systemctl reload nginx
+
+# ── Start production stack ────────────────────────────────────────────────────
+cd "$DEPLOY_DIR"
+docker compose -f docker-compose.prod.yml up --build -d
 
 echo "ReceptorMapper API bootstrap complete."
