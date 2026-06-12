@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import SMILESInput from "@/components/SMILESInput";
+import FileDropzone from "@/components/FileDropzone";
 
 const MODEL_INFO: Record<string, { label: string; framework: string; dataset: string; note: string }> = {
   MPNN_CNN_BindingDB_IC50: {
@@ -51,11 +52,13 @@ export default function HomePage() {
   const [smiles, setSmiles] = useState("");
   const [compoundName, setCompoundName] = useState<string | null>(null);
   const [target, setTarget] = useState("");
-  const [model, setModel] = useState("MPNN_CNN_BindingDB_IC50");
+  const [model, setModel] = useState("Vina");
   const [panel, setPanel] = useState("lung");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recentJobs, setRecentJobs] = useState<RecentJob[]>([]);
+  const [receptorFile, setReceptorFile] = useState<File | null>(null);
+  const [ligandFile, setLigandFile] = useState<File | null>(null);
 
   useEffect(() => {
     fetch("/api/jobs")
@@ -70,17 +73,16 @@ export default function HomePage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/predict", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          smiles,
-          target_sequence: target,
-          model,
-          cell_panel: panel,
-          compound_name: compoundName ?? undefined,
-        }),
-      });
+      const fd = new FormData();
+      if (smiles) fd.append("smiles", smiles);
+      if (target) fd.append("target_sequence", target);
+      if (receptorFile) fd.append("receptor_pdb", receptorFile);
+      if (ligandFile) fd.append("ligand_file", ligandFile);
+      fd.append("model", model);
+      fd.append("cell_panel", panel);
+      if (compoundName) fd.append("job_name", compoundName);
+
+      const res = await fetch("/api/predict", { method: "POST", body: fd });
       const data = await res.json();
 
       if (!res.ok) {
@@ -119,8 +121,29 @@ export default function HomePage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+
+            {/* ── File uploads ── */}
+            <div className="grid grid-cols-2 gap-3">
+              <FileDropzone
+                label="Receptor (PDB)"
+                accept=".pdb"
+                file={receptorFile}
+                onChange={setReceptorFile}
+                hint="Upload .pdb file or use sequence below"
+              />
+              <FileDropzone
+                label="Ligand (mol2 / SDF)"
+                accept=".mol2,.sdf"
+                file={ligandFile}
+                onChange={setLigandFile}
+                hint="Upload .mol2/.sdf or enter SMILES below"
+              />
+            </div>
+
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-stone-700">SMILES String</label>
+              <label className="block text-sm font-medium text-stone-700">
+                SMILES String <span className="text-stone-400 font-normal">(or upload ligand above)</span>
+              </label>
               <div className="flex flex-wrap gap-2 mb-2">
                 {EXAMPLE_SMILES.map((ex) => (
                   <button
@@ -138,7 +161,7 @@ export default function HomePage() {
 
             <div className="space-y-2">
               <label className="block text-sm font-medium text-stone-700">
-                Target Protein Sequence (FASTA amino acids)
+                Target Protein Sequence <span className="text-stone-400 font-normal">(or upload PDB above)</span>
               </label>
               <button
                 type="button"
@@ -222,7 +245,7 @@ export default function HomePage() {
 
             <button
               type="submit"
-              disabled={loading || !smiles || !target}
+              disabled={loading || (!smiles && !ligandFile) || (!target && !receptorFile)}
               className="w-full py-2.5 rounded-md bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-white transition-colors"
             >
               {loading ? "Submitting…" : "Run Prediction"}

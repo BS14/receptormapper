@@ -7,6 +7,7 @@ import OffTargetTable from "@/components/OffTargetTable";
 import CellLineSensitivityGrid from "@/components/CellLineSensitivityGrid";
 import ADMETPanel from "@/components/ADMETPanel";
 import SubmissionInfoCard from "@/components/SubmissionInfoCard";
+import MoleculeViewer from "@/components/MoleculeViewer";
 import type { PredictionResult, SubmissionMeta } from "@/lib/types";
 
 const POLL_INTERVAL_MS = 2000;
@@ -154,6 +155,24 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
         <BindingAffinityCard binding={result.binding} tanimoto={result.tanimoto} />
         <ADMETPanel admet={result.admet} />
       </div>
+
+      {result.binding.docked_complex_url && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-stone-700 uppercase tracking-widest">
+              Docked Complex
+            </h2>
+            <a
+              href={result.binding.docked_complex_url}
+              download="complex.pdb"
+              className="text-xs text-green-700 hover:text-green-600 underline"
+            >
+              Download PDB
+            </a>
+          </div>
+          <MoleculeViewer complexUrl={result.binding.docked_complex_url} />
+        </div>
+      )}
 
       <OffTargetTable entries={result.offtarget} />
       <CellLineSensitivityGrid entries={result.cellline} />

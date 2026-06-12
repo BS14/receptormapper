@@ -52,6 +52,27 @@ resource "aws_iam_role_policy_attachment" "dynamodb" {
   policy_arn = aws_iam_policy.dynamodb.arn
 }
 
+# ── S3 policy (docked complex PDB storage) ───────────────────────────────────
+
+data "aws_iam_policy_document" "s3_docked" {
+  statement {
+    effect    = "Allow"
+    actions   = ["s3:PutObject", "s3:GetObject"]
+    resources = ["arn:aws:s3:::${var.project}-docked-structures/*"]
+  }
+}
+
+resource "aws_iam_policy" "s3_docked" {
+  name   = "${var.project}-s3-docked-policy"
+  policy = data.aws_iam_policy_document.s3_docked.json
+  tags   = local.tags
+}
+
+resource "aws_iam_role_policy_attachment" "s3_docked" {
+  role       = aws_iam_role.api.name
+  policy_arn = aws_iam_policy.s3_docked.arn
+}
+
 # ── SSM Session Manager (shell access without SSH or open port 22) ────────────
 
 resource "aws_iam_role_policy_attachment" "ssm" {

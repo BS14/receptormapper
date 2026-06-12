@@ -27,3 +27,9 @@ variable "dynamodb_table" {
   type        = string
   default     = "receptormapper_jobs"
 }
+
+variable "s3_bucket" {
+  description = "S3 bucket for docked complex PDB files"
+  type        = string
+  default     = "receptormapper-docked-structures"
+}

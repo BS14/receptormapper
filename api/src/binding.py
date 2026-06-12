@@ -4,20 +4,30 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Optional
 
+import boto3
 import requests
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
 logger = logging.getLogger(__name__)
 
-# RT*ln(10) at 310 K (body temperature) in kcal/mol
-_RT_LN10 = 1.420
-
+_RT_LN10 = 1.420  # kcal/mol at 310 K
 _ESMATLAS_URL = "https://api.esmatlas.com/foldSequence/v1/pdb/"
 
 
 # ── Ligand preparation ────────────────────────────────────────────────────────
+
+def _ligand_file_to_pdbqt(ligand_path: str, workdir: str) -> str:
+    """mol2 or SDF → PDBQT via obabel."""
+    out = os.path.join(workdir, "ligand.pdbqt")
+    subprocess.run(
+        ["obabel", ligand_path, "-O", out, "--partialcharge", "gasteiger", "-h"],
+        check=True, capture_output=True,
+    )
+    return out
+
 
 def _smiles_to_pdbqt(smiles: str, workdir: str) -> str:
     """SMILES → 3D conformer (RDKit ETKDG) → PDBQT via Meeko."""
@@ -37,16 +47,16 @@ def _smiles_to_pdbqt(smiles: str, workdir: str) -> str:
     mol_setups = prep.prepare(mol)
     pdbqt_string = MoleculePreparation.write_pdbqt_string(mol_setups[0])
 
-    ligand_path = os.path.join(workdir, "ligand.pdbqt")
-    with open(ligand_path, "w") as f:
+    out = os.path.join(workdir, "ligand.pdbqt")
+    with open(out, "w") as f:
         f.write(pdbqt_string)
-    return ligand_path
+    return out
 
 
 # ── Receptor preparation ──────────────────────────────────────────────────────
 
 def _fold_sequence(sequence: str) -> str:
-    """Call ESMFold API → return PDB text."""
+    """POST sequence to ESMFold API → PDB text."""
     logger.info("Folding sequence via ESMFold (%d AA)", len(sequence))
     resp = requests.post(
         _ESMATLAS_URL,
@@ -58,34 +68,26 @@ def _fold_sequence(sequence: str) -> str:
     return resp.text
 
 
-def _pdb_to_pdbqt(pdb_text: str, workdir: str) -> str:
-    """PDB text → receptor.pdbqt via obabel."""
-    pdb_path = os.path.join(workdir, "receptor.pdb")
-    pdbqt_path = os.path.join(workdir, "receptor.pdbqt")
-    with open(pdb_path, "w") as f:
-        f.write(pdb_text)
+def _pdb_to_pdbqt(pdb_path: str, workdir: str) -> str:
+    """receptor.pdb → receptor.pdbqt via obabel."""
+    out = os.path.join(workdir, "receptor.pdbqt")
     subprocess.run(
-        ["obabel", pdb_path, "-O", pdbqt_path, "-xr", "--partialcharge", "gasteiger"],
+        ["obabel", pdb_path, "-O", out, "-xr", "--partialcharge", "gasteiger"],
         check=True, capture_output=True,
     )
-    return pdbqt_path
+    return out
 
 
 # ── Binding site detection ────────────────────────────────────────────────────
 
 def _fpocket_box(pdb_path: str, workdir: str) -> dict:
     """Run fpocket on receptor PDB, return box for best pocket."""
-    result = subprocess.run(
-        ["fpocket", "-f", pdb_path],
-        capture_output=True, cwd=workdir,
-    )
-    # fpocket writes output to <name>_out/ directory
+    subprocess.run(["fpocket", "-f", pdb_path], capture_output=True, cwd=workdir)
     pdb_stem = Path(pdb_path).stem
     info_file = Path(workdir) / f"{pdb_stem}_out" / f"{pdb_stem}_info.txt"
-    if not info_file.exists() or result.returncode != 0:
+    if not info_file.exists():
         return _whole_protein_box(pdb_path)
 
-    # Parse pocket 1 center from info file
     cx = cy = cz = None
     with open(info_file) as f:
         for line in f:
@@ -95,24 +97,22 @@ def _fpocket_box(pdb_path: str, workdir: str) -> dict:
             m = re.search(r"x_barycenter\s*:\s*([\d.\-]+)", line)
             if m:
                 cx = float(m.group(1))
-            m = re.search(r"y_barycenter\s*([\d.\-]+)", line)
+            m = re.search(r"y_barycenter\s*:\s*([\d.\-]+)", line)
             if m:
                 cy = float(m.group(1))
-            m = re.search(r"z_barycenter\s*([\d.\-]+)", line)
+            m = re.search(r"z_barycenter\s*:\s*([\d.\-]+)", line)
             if m:
                 cz = float(m.group(1))
-            if cx and cy and cz:
+            if cx is not None and cy is not None and cz is not None:
                 break
 
     if None in (cx, cy, cz):
         return _whole_protein_box(pdb_path)
-
     return {"center_x": cx, "center_y": cy, "center_z": cz,
             "size_x": 25.0, "size_y": 25.0, "size_z": 25.0}
 
 
 def _whole_protein_box(pdb_path: str) -> dict:
-    """Fallback: bounding box covering entire protein + 10Å padding."""
     xs, ys, zs = [], [], []
     with open(pdb_path) as f:
         for line in f:
@@ -139,16 +139,16 @@ def _whole_protein_box(pdb_path: str) -> dict:
 
 # ── Vina docking ──────────────────────────────────────────────────────────────
 
-def _run_vina(receptor_pdbqt: str, ligand_pdbqt: str, box: dict, workdir: str) -> float:
-    """Run AutoDock Vina, return best binding energy (kcal/mol)."""
-    out_path = os.path.join(workdir, "out.pdbqt")
+def _run_vina(receptor_pdbqt: str, ligand_pdbqt: str, box: dict, workdir: str) -> tuple[float, str]:
+    """Run AutoDock Vina. Returns (best_delta_g, docked_pdbqt_path)."""
+    out_path = os.path.join(workdir, "docked.pdbqt")
     cmd = [
         "vina",
         "--receptor", receptor_pdbqt,
         "--ligand", ligand_pdbqt,
-        "--center_x", str(box["center_x"]),
-        "--center_y", str(box["center_y"]),
-        "--center_z", str(box["center_z"]),
+        "--center_x", str(round(box["center_x"], 3)),
+        "--center_y", str(round(box["center_y"], 3)),
+        "--center_z", str(round(box["center_z"], 3)),
         "--size_x", str(box["size_x"]),
         "--size_y", str(box["size_y"]),
         "--size_z", str(box["size_z"]),
@@ -160,22 +160,63 @@ def _run_vina(receptor_pdbqt: str, ligand_pdbqt: str, box: dict, workdir: str) -
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=240)
     logger.debug("Vina stdout: %s", result.stdout)
 
-    # Parse best score from output (first mode line: "   1  -X.X  ...")
     for line in result.stdout.splitlines():
         parts = line.split()
         if parts and parts[0] == "1" and len(parts) >= 2:
             try:
-                return float(parts[1])
+                return float(parts[1]), out_path
             except ValueError:
                 continue
 
     raise RuntimeError(f"Could not parse Vina output:\n{result.stdout}\n{result.stderr}")
 
 
+# ── Complex assembly ──────────────────────────────────────────────────────────
+
+def _build_complex_pdb(receptor_pdb: str, docked_pdbqt: str, workdir: str) -> str:
+    """Merge receptor PDB + docked ligand PDBQT into a single complex PDB."""
+    ligand_pdb = os.path.join(workdir, "ligand_docked.pdb")
+    subprocess.run(
+        ["obabel", docked_pdbqt, "-O", ligand_pdb, "-d"],
+        capture_output=True,
+    )
+
+    complex_pdb = os.path.join(workdir, "complex.pdb")
+    with open(complex_pdb, "w") as out:
+        with open(receptor_pdb) as f:
+            for line in f:
+                if line.startswith("END"):
+                    continue
+                out.write(line)
+        out.write("TER\n")
+        with open(ligand_pdb) as f:
+            for line in f:
+                if line.startswith(("ATOM", "HETATM", "CONECT")):
+                    out.write(line)
+        out.write("END\n")
+    return complex_pdb
+
+
+def _upload_complex(complex_pdb: str, job_id: str) -> Optional[str]:
+    bucket = os.environ.get("S3_BUCKET")
+    if not bucket:
+        return None
+    try:
+        s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+        key = f"docked/{job_id}/complex.pdb"
+        s3.upload_file(
+            complex_pdb, bucket, key,
+            ExtraArgs={"ContentType": "chemical/x-pdb", "ACL": "public-read"},
+        )
+        return f"https://{bucket}.s3.amazonaws.com/{key}"
+    except Exception:
+        logger.exception("S3 upload failed for job %s", job_id)
+        return None
+
+
 # ── Conversion helpers ────────────────────────────────────────────────────────
 
 def _delta_g_to_pic50(delta_g: float) -> float:
-    """ΔG (kcal/mol) → pIC50 using RT·ln(10) at 310 K."""
     return -delta_g / _RT_LN10
 
 
@@ -197,7 +238,7 @@ def _strength_label(pic50: float) -> str:
     return "weak"
 
 
-# ── Descriptor fallback (no Vina / ESMFold) ───────────────────────────────────
+# ── Descriptor fallback ───────────────────────────────────────────────────────
 
 def _descriptor_pic50(smiles: str) -> float:
     try:
@@ -222,27 +263,57 @@ def _descriptor_pic50(smiles: str) -> float:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def predict(smiles: str, target: str, model_name: str = "Vina") -> dict:
+def predict(
+    smiles: Optional[str] = None,
+    target: Optional[str] = None,
+    model_name: str = "Vina",
+    receptor_pdb_path: Optional[str] = None,
+    ligand_path: Optional[str] = None,
+    job_id: Optional[str] = None,
+) -> dict:
     try:
         with tempfile.TemporaryDirectory() as wd:
-            ligand_pdbqt = _smiles_to_pdbqt(smiles, wd)
-            pdb_text = _fold_sequence(target)
-            receptor_pdbqt = _pdb_to_pdbqt(pdb_text, wd)
-            pdb_path = os.path.join(wd, "receptor.pdb")
-            box = _fpocket_box(pdb_path, wd)
-            delta_g = _run_vina(receptor_pdbqt, ligand_pdbqt, box, wd)
+            # ── Ligand ──────────────────────────────────────────────────
+            if ligand_path:
+                ligand_pdbqt = _ligand_file_to_pdbqt(ligand_path, wd)
+            elif smiles:
+                ligand_pdbqt = _smiles_to_pdbqt(smiles, wd)
+            else:
+                raise ValueError("No ligand input: provide smiles or ligand_file")
+
+            # ── Receptor ─────────────────────────────────────────────────
+            if receptor_pdb_path:
+                receptor_pdb = receptor_pdb_path
+            elif target:
+                pdb_text = _fold_sequence(target)
+                receptor_pdb = os.path.join(wd, "receptor.pdb")
+                with open(receptor_pdb, "w") as f:
+                    f.write(pdb_text)
+            else:
+                raise ValueError("No receptor input: provide target_sequence or receptor_pdb")
+
+            receptor_pdbqt = _pdb_to_pdbqt(receptor_pdb, wd)
+            box = _fpocket_box(receptor_pdb, wd)
+            delta_g, docked_pdbqt = _run_vina(receptor_pdbqt, ligand_pdbqt, box, wd)
+
+            complex_pdb = _build_complex_pdb(receptor_pdb, docked_pdbqt, wd)
+            docked_url = _upload_complex(complex_pdb, job_id or "unknown") if job_id else None
 
         pic50 = max(3.0, min(12.0, _delta_g_to_pic50(delta_g)))
-        return {
+        result = {
             "pIC50": round(pic50, 2),
             "delta_g": round(delta_g, 2),
             "ic50_nM": round(10 ** (9 - pic50), 1),
             "confidence": _vina_confidence(delta_g),
             "strength": _strength_label(pic50),
         }
+        if docked_url:
+            result["docked_complex_url"] = docked_url
+        return result
+
     except Exception:
         logger.exception("Vina docking failed — using descriptor fallback")
-        pic50 = _descriptor_pic50(smiles)
+        pic50 = _descriptor_pic50(smiles or "") if smiles else 5.0
         pic50 = max(3.0, min(10.0, pic50))
         return {
             "pIC50": round(pic50, 2),

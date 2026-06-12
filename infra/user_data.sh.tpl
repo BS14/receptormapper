@@ -30,6 +30,7 @@ git clone https://github.com/BS14/receptormapper "$DEPLOY_DIR"
 cat > "$DEPLOY_DIR/.env" <<'ENVEOF'
 AWS_REGION=${aws_region}
 DYNAMODB_TABLE=${dynamodb_table}
+S3_BUCKET=${s3_bucket}
 ENVEOF
 
 chown -R ubuntu:ubuntu "$DEPLOY_DIR"

@@ -11,6 +11,7 @@ export interface BindingResult {
   ic50_nM: number;
   confidence: number;
   strength: "strong" | "moderate" | "weak";
+  docked_complex_url?: string;
 }
 
 export interface OffTargetEntry {

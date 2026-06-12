@@ -31,3 +31,4 @@ services:
     environment:
       AWS_REGION: ${AWS_REGION}
       DYNAMODB_TABLE: ${DYNAMODB_TABLE:-receptormapper_jobs}
+      S3_BUCKET: ${S3_BUCKET:-receptormapper-docked-structures}
