@@ -20,7 +20,6 @@ services:
       start_period: 3s
 
   # ── FastAPI prediction server ───────────────────────────────────────────────
-  # entrypoint.sh waits for DynamoDB, creates tables, seeds cache, then starts uvicorn
   api:
     build:
       context: ./api
@@ -37,8 +36,8 @@ services:
       AWS_ACCESS_KEY_ID: fake
       AWS_SECRET_ACCESS_KEY: fake
       AWS_ENDPOINT_URL: http://dynamo:8000
-      DYNAMODB_CACHE_TABLE: prediction_cache
-      DYNAMODB_JOBS_TABLE: prediction_jobs
+      DYNAMODB_TABLE: receptormapper_jobs
+      # S3_BUCKET intentionally unset — docked_complex_url skipped in local dev
 
   # ── Next.js frontend ───────────────────────────────────────────────────────
   frontend:
@@ -56,8 +55,7 @@ services:
       AWS_ACCESS_KEY_ID: fake
       AWS_SECRET_ACCESS_KEY: fake
       AWS_ENDPOINT_URL: http://dynamo:8000
-      DYNAMODB_JOBS_TABLE: prediction_jobs
-      DYNAMODB_CACHE_TABLE: prediction_cache
+      DYNAMODB_TABLE: receptormapper_jobs
       FASTAPI_URL: http://api:8000
       NEXTAUTH_URL: http://localhost:3000
       NEXTAUTH_SECRET: dev-secret-change-in-prod

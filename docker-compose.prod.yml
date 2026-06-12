@@ -1,15 +1,11 @@
-# Production API stack — FastAPI + Nginx
-# Uses real AWS DynamoDB via EC2 instance IAM role (no credentials needed)
-# Frontend is deployed separately on Vercel
+# Production API stack — FastAPI
+# Uses real AWS DynamoDB + S3 via EC2 instance IAM role (no credentials needed)
+# Frontend deployed separately on Vercel
 #
-# Required env vars (set in .env.prod or export before running):
+# Required env vars (in .env, auto-loaded by compose):
 #   AWS_REGION
-#   DYNAMODB_JOBS_TABLE   (default: prediction_jobs)
-#   DYNAMODB_CACHE_TABLE  (default: prediction_cache)
-#
-# SSL certs must be placed at:
-#   nginx/ssl/cert.pem
-#   nginx/ssl/key.pem
+#   DYNAMODB_TABLE   (default: receptormapper_jobs)
+#   S3_BUCKET        (default: receptormapper-docked-structures)
 
 networks:
   rm-prod-net:
