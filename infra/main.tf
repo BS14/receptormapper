@@ -84,15 +84,20 @@ module "ec2" {
   associate_public_ip_address = true
 
   user_data = templatefile("${path.module}/user_data.sh.tpl", {
-    aws_region           = var.aws_region
-    dynamodb_jobs_table  = var.dynamodb_jobs_table
-    dynamodb_cache_table = var.dynamodb_cache_table
+    aws_region     = var.aws_region
+    dynamodb_table = var.dynamodb_table
   })
   user_data_replace_on_change = true
 
+  metadata_options = {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+  }
+
   root_block_device = {
-    volume_size           = 30
-    volume_type           = "gp3"
+    size                  = 50
+    type                  = "gp3"
     delete_on_termination = true
   }
 

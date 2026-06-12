@@ -22,14 +22,8 @@ variable "instance_type" {
   default     = "t3.large"
 }
 
-variable "dynamodb_jobs_table" {
-  description = "DynamoDB prediction jobs table name"
+variable "dynamodb_table" {
+  description = "DynamoDB single table name (from Vercel integration)"
   type        = string
-  default     = "prediction_jobs"
-}
-
-variable "dynamodb_cache_table" {
-  description = "DynamoDB prediction cache table name"
-  type        = string
-  default     = "prediction_cache"
+  default     = "receptormapper_jobs"
 }

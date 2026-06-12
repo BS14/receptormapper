@@ -6,12 +6,14 @@ import time
 import uuid
 
 import boto3
-from boto3.dynamodb.conditions import Attr
+from boto3.dynamodb.conditions import Attr, Key
 
 logger = logging.getLogger(__name__)
 
-_JOBS_TABLE = os.environ.get("DYNAMODB_JOBS_TABLE", "prediction_jobs")
-_CACHE_TABLE = os.environ.get("DYNAMODB_CACHE_TABLE", "prediction_cache")
+# Single table — Vercel DynamoDB integration creates one table with PK/SK keys.
+# Jobs:  PK = "JOB#{job_id}",    SK = "METADATA"
+# Cache: PK = "CACHE#{sha256}",  SK = "RESULT"
+_TABLE = os.environ.get("DYNAMODB_TABLE", "prediction_jobs")
 _CACHE_TTL_DAYS = 30
 _JOB_TTL_SECS = 86400  # 24 hours
 
@@ -29,6 +31,10 @@ def _db():
     return _dynamodb
 
 
+def _table():
+    return _db().Table(_TABLE)
+
+
 def _cache_key(smiles: str, target: str, model: str, cell_panel: str = "lung") -> str:
     raw = f"{smiles}|{target}|{model}|{cell_panel}"
     return hashlib.sha256(raw.encode()).hexdigest()
@@ -39,8 +45,7 @@ def _cache_key(smiles: str, target: str, model: str, cell_panel: str = "lung") -
 def get(smiles: str, target: str, model: str, cell_panel: str = "lung") -> dict | None:
     key = _cache_key(smiles, target, model, cell_panel)
     try:
-        table = _db().Table(_CACHE_TABLE)
-        resp = table.get_item(Key={"cache_key": key})
+        resp = _table().get_item(Key={"PK": f"CACHE#{key}", "SK": "RESULT"})
         item = resp.get("Item")
         if item:
             logger.info("Cache HIT for key %s", key[:16])
@@ -54,9 +59,9 @@ def set(smiles: str, target: str, model: str, result: dict, cell_panel: str = "l
     key = _cache_key(smiles, target, model, cell_panel)
     ttl = int(time.time()) + _CACHE_TTL_DAYS * 86400
     try:
-        table = _db().Table(_CACHE_TABLE)
-        table.put_item(Item={
-            "cache_key": key,
+        _table().put_item(Item={
+            "PK": f"CACHE#{key}",
+            "SK": "RESULT",
             "result": json.dumps(result),
             "created_at": int(time.time()),
             "ttl": ttl,
@@ -72,8 +77,9 @@ def create_job(smiles: str, target: str, model: str, cell_panel: str, job_name: 
     job_id = str(uuid.uuid4())
     name = job_name or (smiles[:20] + ("…" if len(smiles) > 20 else ""))
     try:
-        table = _db().Table(_JOBS_TABLE)
-        table.put_item(Item={
+        _table().put_item(Item={
+            "PK": f"JOB#{job_id}",
+            "SK": "METADATA",
             "job_id": job_id,
             "job_name": name,
             "smiles": smiles,
@@ -92,8 +98,7 @@ def create_job(smiles: str, target: str, model: str, cell_panel: str, job_name: 
 
 def get_job(job_id: str) -> dict | None:
     try:
-        table = _db().Table(_JOBS_TABLE)
-        resp = table.get_item(Key={"job_id": job_id})
+        resp = _table().get_item(Key={"PK": f"JOB#{job_id}", "SK": "METADATA"})
         return resp.get("Item")
     except Exception:
         logger.exception("get_job failed for job %s", job_id)
@@ -102,9 +107,8 @@ def get_job(job_id: str) -> dict | None:
 
 def get_recent_jobs(limit: int = 10) -> list:
     try:
-        table = _db().Table(_JOBS_TABLE)
-        resp = table.scan(
-            FilterExpression=Attr("status").eq("complete"),
+        resp = _table().scan(
+            FilterExpression=Attr("status").eq("complete") & Attr("SK").eq("METADATA"),
             ProjectionExpression="job_id, job_name, smiles, #m, created_at, completed_at",
             ExpressionAttributeNames={"#m": "model"},
         )
@@ -117,9 +121,8 @@ def get_recent_jobs(limit: int = 10) -> list:
 
 def write_job_complete(job_id: str, result: dict) -> None:
     try:
-        table = _db().Table(_JOBS_TABLE)
-        table.update_item(
-            Key={"job_id": job_id},
+        _table().update_item(
+            Key={"PK": f"JOB#{job_id}", "SK": "METADATA"},
             UpdateExpression="SET #s = :s, #r = :r, completed_at = :ca, #ttl = :ttl",
             ExpressionAttributeNames={"#s": "status", "#r": "result", "#ttl": "ttl"},
             ExpressionAttributeValues={
@@ -135,9 +138,8 @@ def write_job_complete(job_id: str, result: dict) -> None:
 
 def write_job_failed(job_id: str, message: str) -> None:
     try:
-        table = _db().Table(_JOBS_TABLE)
-        table.update_item(
-            Key={"job_id": job_id},
+        _table().update_item(
+            Key={"PK": f"JOB#{job_id}", "SK": "METADATA"},
             UpdateExpression="SET #s = :s, #e = :e, completed_at = :ca, #ttl = :ttl",
             ExpressionAttributeNames={"#s": "status", "#e": "error", "#ttl": "ttl"},
             ExpressionAttributeValues={

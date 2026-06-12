@@ -29,8 +29,7 @@ git clone https://github.com/BS14/receptormapper "$DEPLOY_DIR"
 
 cat > "$DEPLOY_DIR/.env" <<'ENVEOF'
 AWS_REGION=${aws_region}
-DYNAMODB_JOBS_TABLE=${dynamodb_jobs_table}
-DYNAMODB_CACHE_TABLE=${dynamodb_cache_table}
+DYNAMODB_TABLE=${dynamodb_table}
 ENVEOF
 
 chown -R ubuntu:ubuntu "$DEPLOY_DIR"
@@ -39,7 +38,7 @@ chown -R ubuntu:ubuntu "$DEPLOY_DIR"
 cat > /etc/nginx/sites-available/rm-api.binaya.com.np <<'NGINXEOF'
 server {
     listen 80;
-    server_name rm-api.binaya.com.np;
+    server_name rm-api.binaya14.com.np;
 
     location / {
         proxy_pass         http://127.0.0.1:8000;

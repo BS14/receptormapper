@@ -31,11 +31,11 @@ data "aws_iam_policy_document" "dynamodb" {
       "dynamodb:UpdateItem",
       "dynamodb:Query",
       "dynamodb:Scan",
+      "dynamodb:DescribeTable"
     ]
     resources = [
-      "arn:aws:dynamodb:${var.aws_region}:*:table/${var.dynamodb_jobs_table}",
-      "arn:aws:dynamodb:${var.aws_region}:*:table/${var.dynamodb_jobs_table}/index/*",
-      "arn:aws:dynamodb:${var.aws_region}:*:table/${var.dynamodb_cache_table}",
+      "arn:aws:dynamodb:${var.aws_region}:*:table/${var.dynamodb_table}",
+      "arn:aws:dynamodb:${var.aws_region}:*:table/${var.dynamodb_table}/index/*",
     ]
   }
 }

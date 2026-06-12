@@ -30,5 +30,4 @@ services:
       - .env
     environment:
       AWS_REGION: ${AWS_REGION}
-      DYNAMODB_JOBS_TABLE: ${DYNAMODB_JOBS_TABLE:-prediction_jobs}
-      DYNAMODB_CACHE_TABLE: ${DYNAMODB_CACHE_TABLE:-prediction_cache}
+      DYNAMODB_TABLE: ${DYNAMODB_TABLE:-receptormapper_jobs}
