@@ -56,9 +56,9 @@ resource "aws_iam_role_policy_attachment" "dynamodb" {
 
 data "aws_iam_policy_document" "s3_docked" {
   statement {
-    effect    = "Allow"
-    actions   = ["s3:PutObject", "s3:GetObject"]
-    resources = ["arn:aws:s3:::${var.project}-docked-structures/*"]
+    effect  = "Allow"
+    actions = ["s3:PutObject", "s3:GetObject"]
+    resources = ["arn:aws:s3:::${var.s3_bucket}/*"]
   }
 }
 
@@ -86,4 +86,29 @@ resource "aws_iam_instance_profile" "api" {
   name = "${var.project}-api-profile"
   role = aws_iam_role.api.name
   tags = local.tags
+}
+
+# ── Local-dev IAM user ────────────────────────────────────────────────────────
+# Grants the same DynamoDB + S3 permissions as the EC2 role so developers
+# can run the full stack locally with real AWS services.
+#
+# After `terraform apply`, generate access keys:
+#   aws iam create-access-key --user-name receptormapper-local-dev
+# Copy the output into api/.env (AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY).
+# NEVER commit access keys to git.
+
+resource "aws_iam_user" "local_dev" {
+  name = "${var.project}-local-dev"
+  path = "/"
+  tags = merge(local.tags, { Purpose = "local-development" })
+}
+
+resource "aws_iam_user_policy_attachment" "local_dev_dynamodb" {
+  user       = aws_iam_user.local_dev.name
+  policy_arn = aws_iam_policy.dynamodb.arn
+}
+
+resource "aws_iam_user_policy_attachment" "local_dev_s3" {
+  user       = aws_iam_user.local_dev.name
+  policy_arn = aws_iam_policy.s3_docked.arn
 }

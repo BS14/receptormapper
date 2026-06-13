@@ -3,53 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import BindingAffinityCard from "@/components/BindingAffinityCard";
-import OffTargetTable from "@/components/OffTargetTable";
-import CellLineSensitivityGrid from "@/components/CellLineSensitivityGrid";
-import ADMETPanel from "@/components/ADMETPanel";
-import SubmissionInfoCard from "@/components/SubmissionInfoCard";
 import MoleculeViewer from "@/components/MoleculeViewer";
-import type { PredictionResult, SubmissionMeta } from "@/lib/types";
+import type { PredictionResult, JobMeta } from "@/lib/types";
 
 const POLL_INTERVAL_MS = 2000;
-
-const PUBCHEM = (smiles: string) =>
-  `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/` +
-  `${encodeURIComponent(smiles)}/property/Title,IUPACName/JSON`;
 
 export default function ResultsPage({ params }: { params: { jobId: string } }) {
   const { jobId } = params;
   const router = useRouter();
   const [result, setResult] = useState<PredictionResult | null>(null);
-  const [meta, setMeta] = useState<SubmissionMeta | null>(null);
+  const [meta, setMeta] = useState<JobMeta | null>(null);
   const [status, setStatus] = useState<string>("queued");
   const [error, setError] = useState<string | null>(null);
-  const [compoundName, setCompoundName] = useState<string | null>(null);
-  const [pdfLoading, setPdfLoading] = useState(false); // kept for type compat, unused
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Fetch compound name once meta is available
   useEffect(() => {
-    if (!meta?.smiles) return;
-    fetch(PUBCHEM(meta.smiles))
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setCompoundName(d?.PropertyTable?.Properties?.[0]?.Title ?? null))
-      .catch(() => {});
-  }, [meta?.smiles]);
-
-  useEffect(() => {
-    if (jobId === "cache") {
-      const raw = sessionStorage.getItem("result_cache");
-      if (raw) {
-        const { result, meta } = JSON.parse(raw);
-        setResult(result);
-        setMeta(meta);
-        setStatus("complete");
-      } else {
-        router.push("/");
-      }
-      return;
-    }
-
     function poll() {
       fetch(`/api/predict/${jobId}`)
         .then((r) => r.json())
@@ -60,7 +28,7 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
             setMeta(data.meta ?? null);
             clearInterval(intervalRef.current!);
           } else if (data.status === "failed") {
-            setError(data.error ?? "Prediction failed");
+            setError(data.error ?? "Docking failed");
             clearInterval(intervalRef.current!);
           }
         })
@@ -73,16 +41,14 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
     poll();
     intervalRef.current = setInterval(poll, POLL_INTERVAL_MS);
     return () => clearInterval(intervalRef.current!);
-  }, [jobId, router]);
-
-  function handleDownloadPDF() {
-    window.print();
-  }
+  }, [jobId]);
 
   if (error) {
     return (
       <div className="max-w-xl mx-auto mt-20 text-center space-y-4">
-        <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded px-4 py-3">{error}</p>
+        <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded px-4 py-3">
+          {error}
+        </p>
         <button onClick={() => router.push("/")} className="text-sm text-green-700 hover:underline">
           ← Back to submission
         </button>
@@ -97,7 +63,9 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
           <div className="h-8 w-8 rounded-full border-2 border-green-600 border-t-transparent animate-spin" />
         </div>
         <p className="text-sm text-stone-500 capitalize">{status}…</p>
-        <p className="text-xs text-stone-400">Polling every 2 s</p>
+        <p className="text-xs text-stone-400">
+          Running AutoDock Vina — typically 30–120 s
+        </p>
       </div>
     );
   }
@@ -107,14 +75,15 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-stone-800">Prediction Results</h1>
-          {jobId !== "cache" && (
-            <p className="text-xs text-stone-500 font-mono mt-0.5">job {jobId}</p>
+          <h1 className="text-xl font-bold text-stone-800">Docking Results</h1>
+          {meta?.job_name && (
+            <p className="text-sm text-stone-500 mt-0.5">{meta.job_name}</p>
           )}
+          <p className="text-xs text-stone-400 font-mono mt-0.5">job {jobId}</p>
         </div>
         <div className="no-print flex items-center gap-3">
           <button
-            onClick={handleDownloadPDF}
+            onClick={() => window.print()}
             className="flex items-center gap-2 px-4 py-2 rounded-md bg-white hover:bg-stone-50 border border-stone-300 text-sm text-stone-700 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -124,13 +93,12 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
             Print / Save PDF
           </button>
           <button onClick={() => router.push("/")} className="text-sm text-green-700 hover:underline">
-            ← New prediction
+            ← New job
           </button>
         </div>
       </div>
 
-      {meta && <SubmissionInfoCard meta={meta} />}
-
+      {/* Flags */}
       {result.flags.length > 0 && (
         <div className="space-y-2">
           {result.flags.map((f, i) => (
@@ -151,12 +119,11 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <BindingAffinityCard binding={result.binding} tanimoto={result.tanimoto} />
-        <ADMETPanel admet={result.admet} />
-      </div>
+      {/* Binding affinity card */}
+      <BindingAffinityCard binding={result.binding} />
 
-      {result.binding.docked_complex_url && (
+      {/* 3D complex viewer */}
+      {result.binding.docked_complex_url ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-stone-700 uppercase tracking-widest">
@@ -172,34 +139,31 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
           </div>
           <MoleculeViewer complexUrl={result.binding.docked_complex_url} />
         </div>
+      ) : (
+        <div className="rounded-md bg-stone-50 border border-stone-200 px-4 py-6 text-center text-xs text-stone-400">
+          3D viewer unavailable — S3 bucket not configured or upload failed.
+        </div>
       )}
-
-      <OffTargetTable entries={result.offtarget} />
-      <CellLineSensitivityGrid entries={result.cellline} />
 
       {/* Citations */}
       <div className="border-t border-stone-200 pt-6 space-y-2">
         <p className="text-xs font-semibold text-stone-500 uppercase tracking-widest">References</p>
         <ol className="list-decimal list-inside space-y-1.5 text-xs text-stone-500 leading-relaxed">
           <li>
-            Huang, K., Fu, T., Glass, L. M., Zitnik, M., Xiao, C., &amp; Sun, J. (2020).{" "}
-            <span className="italic">DeepPurpose: A Deep Learning Library for Drug-Target Interaction Prediction.</span>{" "}
-            Bioinformatics.
+            Eberhardt, J., Santos-Martins, D., Tillack, A. F., &amp; Forli, S. (2021).{" "}
+            <span className="italic">AutoDock Vina 1.2.0: New Docking Methods, Expanded Force Field, and Python Bindings.</span>{" "}
+            Journal of Chemical Information and Modeling, 61(8), 3891–3898.
           </li>
-          {meta?.model?.startsWith("TDC_") && (
-            <>
-              <li>
-                Huang, K., Fu, T., Gao, W., Zhao, Y., Roohani, Y., Leskovec, J., Coley, C. W., Xiao, C., Sun, J., &amp; Zitnik, M. (2021).{" "}
-                <span className="italic">Therapeutics Data Commons: Machine Learning Datasets and Tasks for Drug Discovery and Development.</span>{" "}
-                NeurIPS Datasets and Benchmarks.
-              </li>
-              <li>
-                Huang, K., Fu, T., Gao, W., Zhao, Y., Roohani, Y., Leskovec, J., Coley, C. W., Xiao, C., Sun, J., &amp; Zitnik, M. (2022).{" "}
-                <span className="italic">Artificial intelligence foundation for therapeutic science.</span>{" "}
-                Nature Chemical Biology.
-              </li>
-            </>
-          )}
+          <li>
+            Lin, Z., Akin, H., Rao, R., Hie, B., Zhu, Z., Lu, W., … Rives, A. (2023).{" "}
+            <span className="italic">Evolutionary-scale prediction of atomic-level protein structure with a language model.</span>{" "}
+            Science, 379(6637), 1123–1130. (ESMFold)
+          </li>
+          <li>
+            Le Guilloux, V., Schmidtke, P., &amp; Tuffery, P. (2009).{" "}
+            <span className="italic">Fpocket: An open source platform for ligand pocket detection.</span>{" "}
+            BMC Bioinformatics, 10, 168.
+          </li>
         </ol>
       </div>
     </div>

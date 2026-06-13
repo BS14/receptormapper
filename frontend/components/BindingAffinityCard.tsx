@@ -1,8 +1,7 @@
-import type { BindingResult, TanimotoResult } from "@/lib/types";
+import type { BindingResult } from "@/lib/types";
 
 interface Props {
   binding: BindingResult;
-  tanimoto: TanimotoResult;
 }
 
 const STRENGTH_COLOR: Record<string, string> = {
@@ -23,14 +22,14 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   );
 }
 
-export default function BindingAffinityCard({ binding, tanimoto }: Props) {
+export default function BindingAffinityCard({ binding }: Props) {
   const confidencePct = Math.round(binding.confidence * 100);
 
   return (
     <div className="rounded-lg border border-stone-200 bg-white p-5 space-y-4 shadow-sm">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-stone-600 uppercase tracking-wide">
-          Binding Affinity
+          Binding Affinity — AutoDock Vina
         </h2>
         <span className={`text-sm font-bold capitalize ${STRENGTH_COLOR[binding.strength] ?? "text-stone-400"}`}>
           {binding.strength}
@@ -39,9 +38,11 @@ export default function BindingAffinityCard({ binding, tanimoto }: Props) {
 
       <div className="grid grid-cols-3 gap-4">
         <Stat label="pIC50" value={binding.pIC50.toFixed(2)} />
-        <Stat label="IC50" value={binding.ic50_nM >= 1000
-          ? `${(binding.ic50_nM / 1000).toFixed(2)}`
-          : binding.ic50_nM.toFixed(1)}
+        <Stat
+          label="IC50"
+          value={binding.ic50_nM >= 1000
+            ? `${(binding.ic50_nM / 1000).toFixed(2)}`
+            : binding.ic50_nM.toFixed(1)}
           sub={binding.ic50_nM >= 1000 ? "µM" : "nM"}
         />
         <Stat label="ΔG" value={binding.delta_g.toFixed(1)} sub="kcal/mol" />
@@ -49,7 +50,7 @@ export default function BindingAffinityCard({ binding, tanimoto }: Props) {
 
       <div className="space-y-1">
         <div className="flex justify-between text-xs text-stone-500">
-          <span>Confidence</span>
+          <span>Docking confidence</span>
           <span>{confidencePct}%</span>
         </div>
         <div className="h-1.5 rounded-full bg-stone-200">
@@ -58,16 +59,9 @@ export default function BindingAffinityCard({ binding, tanimoto }: Props) {
             style={{ width: `${confidencePct}%` }}
           />
         </div>
-        {tanimoto.extrapolation_risk && (
-          <p className="text-xs text-yellow-600 mt-1">
-            Low training similarity ({tanimoto.max_tanimoto.toFixed(2)}) — extrapolation
-          </p>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-stone-200 text-xs text-stone-500">
-        <span>Max Tanimoto: <span className="text-stone-700">{tanimoto.max_tanimoto.toFixed(3)}</span></span>
-        <span>Top-10 mean: <span className="text-stone-700">{tanimoto.mean_top10.toFixed(3)}</span></span>
+        <p className="text-xs text-stone-400 mt-1">
+          Confidence derived from ΔG magnitude — physics-based estimate only.
+        </p>
       </div>
     </div>
   );

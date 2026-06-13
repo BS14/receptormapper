@@ -1,23 +1,24 @@
+# Local development stack — uses real AWS DynamoDB + S3 (no local containers needed)
+#
+# Quick start:
+#   docker compose up --build          # start API + frontend
+#   docker compose up --build -d       # same, detached
+#
+# Run unit tests (fast, Vina mocked):
+#   docker compose --profile test run --rm test
+#
+# Run full integration tests (real Vina, 1-5 min):
+#   docker compose --profile test run --rm test \
+#     python -m pytest tests/ -v -s
+#
+# Credentials are loaded from .env.local.example — copy it to .env to let
+# Docker Compose pick it up automatically, or use the env_file directive below.
+
 networks:
   rm-net:
     driver: bridge
 
 services:
-
-  # ── Local DynamoDB ──────────────────────────────────────────────────────────
-  dynamo:
-    image: amazon/dynamodb-local
-    container_name: rm-dynamo
-    networks: [rm-net]
-    ports:
-      - "8000:8000"
-    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
-    healthcheck:
-      test: ["CMD-SHELL", "timeout 1 bash -c 'cat < /dev/null > /dev/tcp/localhost/8000'"]
-      interval: 3s
-      timeout: 5s
-      retries: 20
-      start_period: 3s
 
   # ── FastAPI prediction server ───────────────────────────────────────────────
   api:
@@ -28,18 +29,11 @@ services:
     networks: [rm-net]
     ports:
       - "8080:8000"
-    depends_on:
-      dynamo:
-        condition: service_healthy
-    environment:
-      AWS_REGION: us-east-1
-      AWS_ACCESS_KEY_ID: fake
-      AWS_SECRET_ACCESS_KEY: fake
-      AWS_ENDPOINT_URL: http://dynamo:8000
-      DYNAMODB_TABLE: receptormapper_jobs
-      # S3_BUCKET intentionally unset — docked_complex_url skipped in local dev
+    env_file:
+      - .env.local.example
+    # env_file sets AWS creds + DYNAMODB_TABLE. No AWS_ENDPOINT_URL → real AWS.
 
-  # ── Next.js frontend ───────────────────────────────────────────────────────
+  # ── Next.js frontend ────────────────────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
@@ -50,12 +44,5 @@ services:
       - "3000:3000"
     depends_on:
       - api
-    environment:
-      AWS_REGION: us-east-1
-      AWS_ACCESS_KEY_ID: fake
-      AWS_SECRET_ACCESS_KEY: fake
-      AWS_ENDPOINT_URL: http://dynamo:8000
-      DYNAMODB_TABLE: receptormapper_jobs
-      FASTAPI_URL: http://api:8000
-      NEXTAUTH_URL: http://localhost:3000
-      NEXTAUTH_SECRET: dev-secret-change-in-prod
+    env_file:
+      - .env.frontend.local.example

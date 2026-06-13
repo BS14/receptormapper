@@ -2,33 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import SMILESInput from "@/components/SMILESInput";
 import FileDropzone from "@/components/FileDropzone";
-
-const MODEL_INFO: Record<string, { label: string; framework: string; dataset: string; note: string }> = {
-  MPNN_CNN_BindingDB_IC50: {
-    label: "MPNN-CNN",
-    framework: "DeepPurpose",
-    dataset: "BindingDB IC50",
-    note: "Message-passing drug encoder + CNN protein encoder",
-  },
-  TDC_DeepDTA_DAVIS: {
-    label: "DeepDTA",
-    framework: "TDC / PyTDC",
-    dataset: "DAVIS Kd",
-    note: "CNN drug + CNN protein encoder, trained on kinase panel",
-  },
-};
-
-const EXAMPLE_SMILES = [
-  { label: "Paracetamol", value: "CC(=O)Nc1ccc(O)cc1" },
-  { label: "Erlotinib", value: "C#Cc1cccc(Nc2ncnc3cc(OCC)c(OCC)cc23)c1" },
-  { label: "Imatinib", value: "Cc1ccc(NC(=O)c2ccc(CN3CCN(C)CC3)cc2)cc1Nc1nccc(-c2cccnc2)n1" },
-  { label: "Aspirin", value: "CC(=O)Oc1ccccc1C(=O)O" },
-];
-
-const EXAMPLE_TARGET =
-  "MRPSGTAGAALLALLAALCPASRALEEKKVCQGTSNKLTQLGTFEDHFLSLQRMFNNCEVVLGNLEITYVQRNYDLSFLKTIQEVAGYVLIALNTVERIPLENLQIIRGNMYYENSYALAVLSNYDANKTGLKELPMRNLQEILHGAVRFSNNPALCNVESIQWRDIVSSDFLSNMSMDFQNHLGSCQKCDPSCPNGSCWGAGEENCQKLTKIICAQQCSGRCRGKSPSDCCHNQCAAGCTGPRESDCLVCRKFRDEATCKDTCPPLMLYNPTTYQ";
 
 function timeAgo(unixSecs: number): string {
   const diff = Math.floor(Date.now() / 1000) - unixSecs;
@@ -41,24 +15,29 @@ function timeAgo(unixSecs: number): string {
 interface RecentJob {
   job_id: string;
   job_name: string;
-  smiles: string;
-  model: string;
   created_at: number;
-  completed_at?: number;
 }
 
 export default function HomePage() {
   const router = useRouter();
-  const [smiles, setSmiles] = useState("");
-  const [compoundName, setCompoundName] = useState<string | null>(null);
-  const [target, setTarget] = useState("");
-  const [model, setModel] = useState("Vina");
-  const [panel, setPanel] = useState("lung");
+
+  // File state
+  const [receptorFile, setReceptorFile] = useState<File | null>(null);
+  const [ligandFile, setLigandFile] = useState<File | null>(null);
+
+  // RCSB fetch state
+  const [pdbId, setPdbId] = useState("");
+  const [fetchingReceptor, setFetchingReceptor] = useState(false);
+
+  // PubChem fetch state
+  const [compoundQuery, setCompoundQuery] = useState("");
+  const [fetchingLigand, setFetchingLigand] = useState(false);
+
+  // Form state
+  const [jobName, setJobName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recentJobs, setRecentJobs] = useState<RecentJob[]>([]);
-  const [receptorFile, setReceptorFile] = useState<File | null>(null);
-  const [ligandFile, setLigandFile] = useState<File | null>(null);
 
   useEffect(() => {
     fetch("/api/jobs")
@@ -67,40 +46,69 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
+  // ── RCSB fetch ──────────────────────────────────────────────────────────────
+  async function fetchFromRCSB() {
+    const id = pdbId.trim().toUpperCase();
+    if (!id) return;
+    setFetchingReceptor(true);
+    setError(null);
+    try {
+      const res = await fetch(`https://files.rcsb.org/download/${id}.pdb`);
+      if (!res.ok) throw new Error(`PDB entry "${id}" not found on RCSB`);
+      const blob = await res.blob();
+      setReceptorFile(new File([blob], `${id}.pdb`, { type: "chemical/x-pdb" }));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setFetchingReceptor(false);
+    }
+  }
+
+  // ── PubChem fetch ───────────────────────────────────────────────────────────
+  async function fetchFromPubChem() {
+    const q = compoundQuery.trim();
+    if (!q) return;
+    setFetchingLigand(true);
+    setError(null);
+    try {
+      const isNumeric = /^\d+$/.test(q);
+      const endpoint = isNumeric
+        ? `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${q}/SDF`
+        : `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(q)}/SDF`;
+      const res = await fetch(endpoint);
+      if (!res.ok) throw new Error(`Compound "${q}" not found on PubChem`);
+      const blob = await res.blob();
+      const filename = q.replace(/\s+/g, "_") + ".sdf";
+      setLigandFile(new File([blob], filename, { type: "chemical/x-mdl-sdfile" }));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setFetchingLigand(false);
+    }
+  }
+
+  // ── Submit ──────────────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!receptorFile || !ligandFile) return;
     setError(null);
     setLoading(true);
-
     try {
       const fd = new FormData();
-      if (smiles) fd.append("smiles", smiles);
-      if (target) fd.append("target_sequence", target);
-      if (receptorFile) fd.append("receptor_pdb", receptorFile);
-      if (ligandFile) fd.append("ligand_file", ligandFile);
-      fd.append("model", model);
-      fd.append("cell_panel", panel);
-      if (compoundName) fd.append("job_name", compoundName);
+      fd.append("receptor_pdb", receptorFile);
+      fd.append("ligand_file", ligandFile);
+      if (jobName) fd.append("job_name", jobName);
 
       const res = await fetch("/api/predict", { method: "POST", body: fd });
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error ?? "Submission failed");
+        setError(data.detail ?? data.error ?? "Submission failed");
         return;
       }
-
-      if (data.status === "complete") {
-        sessionStorage.setItem("result_cache", JSON.stringify({
-          result: data.result,
-          meta: { smiles, target, model, cell_panel: panel },
-        }));
-        router.push(`/results/cache`);
-      } else {
-        router.push(`/results/${data.job_id}`);
-      }
+      router.push(`/results/${data.job_id}`);
     } catch {
-      setError("Network error — is the server running?");
+      setError("Network error — is the API server running?");
     } finally {
       setLoading(false);
     }
@@ -113,128 +121,103 @@ export default function HomePage() {
         {/* ── Submission form ── */}
         <div className="lg:col-span-2 space-y-8">
           <div>
-            <h1 className="text-2xl font-bold text-stone-800">Drug-Target Interaction Prediction</h1>
+            <h1 className="text-2xl font-bold text-stone-800">Molecular Docking</h1>
             <p className="mt-1 text-sm text-stone-500">
-              Submit a SMILES string and protein target to predict binding affinity,
-              off-target effects, cell-line sensitivity, and ADMET properties.
+              Upload a receptor PDB and ligand SDF/mol2 file to run AutoDock Vina
+              and visualise the docked complex in 3D.
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
 
-            {/* ── File uploads ── */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* ── Receptor ── */}
+            <div className="space-y-3">
+              <label className="block text-sm font-semibold text-stone-700">
+                Receptor (PDB)
+              </label>
+
+              {/* RCSB fetch */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={pdbId}
+                  onChange={(e) => setPdbId(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), fetchFromRCSB())}
+                  placeholder="PDB ID — e.g. 1IEP, 2HYY, 1EQG"
+                  className="flex-1 rounded-md bg-white border border-stone-300 px-3 py-2 text-sm text-stone-800 font-mono placeholder-stone-400 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                />
+                <button
+                  type="button"
+                  onClick={fetchFromRCSB}
+                  disabled={!pdbId.trim() || fetchingReceptor}
+                  className="px-4 py-2 rounded-md bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-white whitespace-nowrap transition-colors"
+                >
+                  {fetchingReceptor ? "Fetching…" : "Fetch from RCSB"}
+                </button>
+              </div>
+
+              <p className="text-xs text-stone-400 -mt-1">
+                Or upload a PDB file directly:
+              </p>
               <FileDropzone
-                label="Receptor (PDB)"
+                label="Receptor PDB"
                 accept=".pdb"
                 file={receptorFile}
                 onChange={setReceptorFile}
-                hint="Upload .pdb file or use sequence below"
+                hint="Drop .pdb here or click to browse"
               />
+            </div>
+
+            {/* ── Ligand ── */}
+            <div className="space-y-3">
+              <label className="block text-sm font-semibold text-stone-700">
+                Ligand (SDF / mol2)
+              </label>
+
+              {/* PubChem fetch */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={compoundQuery}
+                  onChange={(e) => setCompoundQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), fetchFromPubChem())}
+                  placeholder="Compound name or CID — e.g. Imatinib, 5291, Erlotinib"
+                  className="flex-1 rounded-md bg-white border border-stone-300 px-3 py-2 text-sm text-stone-800 font-mono placeholder-stone-400 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                />
+                <button
+                  type="button"
+                  onClick={fetchFromPubChem}
+                  disabled={!compoundQuery.trim() || fetchingLigand}
+                  className="px-4 py-2 rounded-md bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-white whitespace-nowrap transition-colors"
+                >
+                  {fetchingLigand ? "Fetching…" : "Fetch from PubChem"}
+                </button>
+              </div>
+
+              <p className="text-xs text-stone-400 -mt-1">
+                Or upload an SDF / mol2 file directly:
+              </p>
               <FileDropzone
-                label="Ligand (mol2 / SDF)"
-                accept=".mol2,.sdf"
+                label="Ligand (SDF / mol2)"
+                accept=".sdf,.mol2"
                 file={ligandFile}
                 onChange={setLigandFile}
-                hint="Upload .mol2/.sdf or enter SMILES below"
+                hint="Drop .sdf or .mol2 here or click to browse"
               />
             </div>
 
-            <div className="space-y-2">
+            {/* ── Job name ── */}
+            <div className="space-y-1">
               <label className="block text-sm font-medium text-stone-700">
-                SMILES String <span className="text-stone-400 font-normal">(or upload ligand above)</span>
+                Job name <span className="text-stone-400 font-normal">(optional)</span>
               </label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {EXAMPLE_SMILES.map((ex) => (
-                  <button
-                    key={ex.label}
-                    type="button"
-                    onClick={() => setSmiles(ex.value)}
-                    className="px-2 py-0.5 text-xs rounded bg-stone-100 text-green-700 hover:bg-stone-200 border border-stone-300"
-                  >
-                    {ex.label}
-                  </button>
-                ))}
-              </div>
-              <SMILESInput value={smiles} onChange={setSmiles} onNameChange={setCompoundName} />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-stone-700">
-                Target Protein Sequence <span className="text-stone-400 font-normal">(or upload PDB above)</span>
-              </label>
-              <button
-                type="button"
-                onClick={() => setTarget(EXAMPLE_TARGET)}
-                className="px-2 py-0.5 text-xs rounded bg-stone-100 text-green-700 hover:bg-stone-200 border border-stone-300 mb-2"
-              >
-                Use EGFR example
-              </button>
-              <textarea
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                rows={4}
-                placeholder="MRPSGTAGAALLALLAALCPAS..."
-                className="w-full rounded-md bg-white border border-stone-300 px-3 py-2 text-sm text-stone-800 font-mono placeholder-stone-400 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+              <input
+                type="text"
+                value={jobName}
+                onChange={(e) => setJobName(e.target.value)}
+                placeholder="e.g. Imatinib / ABL1 screen"
+                className="w-full rounded-md bg-white border border-stone-300 px-3 py-2 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
               />
-              <p className="text-xs text-stone-500">
-                {target.length} amino acids
-                {target.length > 0 && target.length < 20 && (
-                  <span className="text-yellow-600 ml-2">— minimum 20 required</span>
-                )}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-stone-700">Model</label>
-                <select
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="w-full rounded-md bg-white border border-stone-300 px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
-                >
-                  <optgroup label="DeepPurpose">
-                    <option value="MPNN_CNN_BindingDB_IC50">MPNN-CNN · BindingDB IC50</option>
-                  </optgroup>
-                  <optgroup label="TDC / PyTDC">
-                    <option value="TDC_DeepDTA_DAVIS">DeepDTA · DAVIS Kd</option>
-                  </optgroup>
-                </select>
-                {MODEL_INFO[model] && (
-                  <p className="text-xs text-stone-500 mt-1">
-                    <span className="text-green-700 font-medium">{MODEL_INFO[model].framework}</span>
-                    {" · "}{MODEL_INFO[model].dataset}
-                    {" — "}{MODEL_INFO[model].note}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-stone-700">Cell Line Panel</label>
-                <select
-                  value={panel}
-                  onChange={(e) => setPanel(e.target.value)}
-                  className="w-full rounded-md bg-white border border-stone-300 px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
-                >
-                  <optgroup label="── Cancer ──────────────">
-                    <option value="lung">Lung (12 lines)</option>
-                    <option value="breast">Breast (10 lines)</option>
-                    <option value="colorectal">Colorectal (12 lines)</option>
-                    <option value="prostate">Prostate (10 lines)</option>
-                    <option value="ovarian">Ovarian (10 lines)</option>
-                    <option value="pancreatic">Pancreatic (10 lines)</option>
-                    <option value="leukemia">Leukemia / Hematological (12 lines)</option>
-                    <option value="melanoma">Melanoma (10 lines)</option>
-                    <option value="glioblastoma">Glioblastoma / Brain (10 lines)</option>
-                    <option value="liver">Liver / HCC (10 lines)</option>
-                    <option value="renal">Renal / Kidney (10 lines)</option>
-                    <option value="pan">Pan-cancer (20 lines)</option>
-                  </optgroup>
-                  <optgroup label="── Metabolic / Other ───">
-                    <option value="diabetic">Diabetic / Metabolic (10 lines)</option>
-                    <option value="neurological">Neurological (10 lines)</option>
-                  </optgroup>
-                </select>
-              </div>
             </div>
 
             {error && (
@@ -245,22 +228,24 @@ export default function HomePage() {
 
             <button
               type="submit"
-              disabled={loading || (!smiles && !ligandFile) || (!target && !receptorFile)}
+              disabled={loading || !receptorFile || !ligandFile}
               className="w-full py-2.5 rounded-md bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-white transition-colors"
             >
-              {loading ? "Submitting…" : "Run Prediction"}
+              {loading ? "Submitting…" : "Run Docking"}
             </button>
           </form>
         </div>
 
-        {/* ── Recent predictions sidebar ── */}
+        {/* ── Recent docking jobs sidebar ── */}
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-stone-700 uppercase tracking-widest">
-            Recent Predictions
+            Recent Docking Jobs
           </h2>
 
           {recentJobs.length === 0 ? (
-            <p className="text-xs text-stone-400">No predictions yet. Results appear here after completion.</p>
+            <p className="text-xs text-stone-400">
+              No jobs yet. Results appear here after completion.
+            </p>
           ) : (
             <ul className="space-y-2">
               {recentJobs.map((job) => (
@@ -270,11 +255,9 @@ export default function HomePage() {
                     className="w-full text-left rounded-md border border-stone-200 bg-white hover:bg-stone-50 px-3 py-2.5 transition-colors"
                   >
                     <p className="text-sm font-medium text-stone-800 truncate">
-                      {job.job_name || job.smiles.slice(0, 24) + "…"}
+                      {job.job_name || job.job_id.slice(0, 8)}
                     </p>
-                    <p className="text-xs text-stone-500 mt-0.5 truncate">
-                      {MODEL_INFO[job.model]?.label ?? job.model}
-                      {" · "}
+                    <p className="text-xs text-stone-500 mt-0.5">
                       {timeAgo(job.created_at)}
                     </p>
                   </button>
@@ -283,7 +266,27 @@ export default function HomePage() {
             </ul>
           )}
 
-          <p className="text-xs text-stone-400">Predictions expire after 24 hours.</p>
+          <p className="text-xs text-stone-400">Results cached for 24 hours.</p>
+
+          <div className="pt-4 border-t border-stone-100 space-y-1.5">
+            <p className="text-xs font-medium text-stone-500">Quick links</p>
+            <a
+              href="https://www.rcsb.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-green-700 hover:text-green-600"
+            >
+              RCSB Protein Data Bank ↗
+            </a>
+            <a
+              href="https://pubchem.ncbi.nlm.nih.gov"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-green-700 hover:text-green-600"
+            >
+              PubChem Compound Database ↗
+            </a>
+          </div>
         </div>
 
       </div>

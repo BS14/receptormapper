@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -198,17 +199,20 @@ def _build_complex_pdb(receptor_pdb: str, docked_pdbqt: str, workdir: str) -> st
 
 
 def _upload_complex(complex_pdb: str, job_id: str) -> Optional[str]:
+    """Upload the docked complex to S3 and return the S3 key (not a URL).
+
+    The caller is responsible for generating a presigned URL from the key at
+    serve time so that links remain valid regardless of when the job was stored.
+    """
     bucket = os.environ.get("S3_BUCKET")
     if not bucket:
         return None
     try:
         s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
-        key = f"docked/{job_id}/complex.pdb"
-        s3.upload_file(
-            complex_pdb, bucket, key,
-            ExtraArgs={"ContentType": "chemical/x-pdb", "ACL": "public-read"},
-        )
-        return f"https://{bucket}.s3.amazonaws.com/{key}"
+        key = f"{job_id}/assets/complex.pdb"
+        s3.upload_file(complex_pdb, bucket, key, ExtraArgs={"ContentType": "chemical/x-pdb"})
+        logger.info("Uploaded complex to s3://%s/%s", bucket, key)
+        return key
     except Exception:
         logger.exception("S3 upload failed for job %s", job_id)
         return None
@@ -283,7 +287,9 @@ def predict(
 
             # ── Receptor ─────────────────────────────────────────────────
             if receptor_pdb_path:
-                receptor_pdb = receptor_pdb_path
+                # Copy into workdir so fpocket output lands predictably in wd
+                receptor_pdb = os.path.join(wd, "receptor.pdb")
+                shutil.copy2(receptor_pdb_path, receptor_pdb)
             elif target:
                 pdb_text = _fold_sequence(target)
                 receptor_pdb = os.path.join(wd, "receptor.pdb")
@@ -308,7 +314,8 @@ def predict(
             "strength": _strength_label(pic50),
         }
         if docked_url:
-            result["docked_complex_url"] = docked_url
+            # docked_url is an S3 key — presigned URL generated at serve time
+            result["docked_complex_key"] = docked_url
         return result
 
     except Exception:

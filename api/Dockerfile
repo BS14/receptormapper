@@ -31,7 +31,7 @@ RUN pip install --no-cache-dir --prefer-binary rdkit-pypi
 
 RUN pip install --no-cache-dir meeko biopython requests
 
-RUN pip install --no-cache-dir fastapi "uvicorn[standard]" python-multipart
+RUN pip install --no-cache-dir fastapi "uvicorn[standard]" python-multipart pytest httpx
 
 COPY src/ /app/src/
 COPY models/ /app/models/
