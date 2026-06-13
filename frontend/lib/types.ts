@@ -18,14 +18,23 @@ export interface PredictionSummary {
   total_flags: number;
 }
 
+export interface PredictionInputs {
+  job_id?: string;
+  receptor_name?: string;
+  ligand_name?: string;
+  smiles?: string;
+}
+
 export interface PredictionResult {
   binding: BindingResult;
   flags: PredictionFlag[];
   summary: PredictionSummary;
+  inputs?: PredictionInputs;
 }
 
 export interface JobMeta {
   job_name: string;
+  job_id?: string;
 }
 
 export type JobStatus = "queued" | "running" | "complete" | "failed";

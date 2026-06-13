@@ -69,6 +69,39 @@ def _fold_sequence(sequence: str) -> str:
     return resp.text
 
 
+_WATER_RESIDUES = {"HOH", "WAT", "H2O", "DOD", "SOL"}
+
+
+def _clean_receptor_pdb(pdb_path: str, workdir: str) -> str:
+    """Remove waters, alt conformations, and non-essential HETATMs before docking."""
+    out = os.path.join(workdir, "receptor_clean.pdb")
+    kept = 0
+    removed_water = 0
+    removed_altloc = 0
+    with open(pdb_path) as fin, open(out, "w") as fout:
+        for line in fin:
+            rec = line[:6].strip()
+            if rec == "CONECT":
+                continue  # serial numbers break after complex merge
+            if rec in ("ATOM", "HETATM"):
+                resname = line[17:20].strip()
+                altloc = line[16] if len(line) > 16 else " "
+                if resname in _WATER_RESIDUES:
+                    removed_water += 1
+                    continue
+                if altloc not in (" ", "A"):
+                    removed_altloc += 1
+                    continue
+                line = line[:16] + " " + line[17:]
+            fout.write(line)
+            kept += 1
+    logger.info(
+        "Receptor cleaned: %d lines kept, %d waters removed, %d alt-conf removed",
+        kept, removed_water, removed_altloc,
+    )
+    return out
+
+
 def _pdb_to_pdbqt(pdb_path: str, workdir: str) -> str:
     """receptor.pdb → receptor.pdbqt via obabel."""
     out = os.path.join(workdir, "receptor.pdbqt")
@@ -174,11 +207,35 @@ def _run_vina(receptor_pdbqt: str, ligand_pdbqt: str, box: dict, workdir: str) -
 
 # ── Complex assembly ──────────────────────────────────────────────────────────
 
+def _extract_best_pose(docked_pdbqt: str, workdir: str) -> str:
+    """Write only MODEL 1 (best Vina pose) to a new PDBQT."""
+    out = os.path.join(workdir, "best_pose.pdbqt")
+    in_model1 = False
+    with open(docked_pdbqt) as fin, open(out, "w") as fout:
+        for line in fin:
+            if line.startswith("MODEL"):
+                num = line.split()[1] if len(line.split()) > 1 else "1"
+                in_model1 = (num == "1")
+                continue
+            if line.startswith("ENDMDL"):
+                if in_model1:
+                    break  # done with best pose
+                continue
+            if in_model1:
+                fout.write(line)
+    return out
+
+
 def _build_complex_pdb(receptor_pdb: str, docked_pdbqt: str, workdir: str) -> str:
-    """Merge receptor PDB + docked ligand PDBQT into a single complex PDB."""
+    """Merge receptor PDB + docked ligand PDBQT into a single complex PDB.
+
+    Ligand atoms are forced to HETATM residue LIG chain Z so the 3-D viewer
+    can reliably select them with { resn: 'LIG' }.
+    """
+    best_pose_pdbqt = _extract_best_pose(docked_pdbqt, workdir)
     ligand_pdb = os.path.join(workdir, "ligand_docked.pdb")
     subprocess.run(
-        ["obabel", docked_pdbqt, "-O", ligand_pdb, "-d"],
+        ["obabel", best_pose_pdbqt, "-O", ligand_pdb, "-d"],
         capture_output=True,
     )
 
@@ -192,8 +249,16 @@ def _build_complex_pdb(receptor_pdb: str, docked_pdbqt: str, workdir: str) -> st
         out.write("TER\n")
         with open(ligand_pdb) as f:
             for line in f:
-                if line.startswith(("ATOM", "HETATM", "CONECT")):
-                    out.write(line)
+                if line.startswith(("ATOM", "HETATM")):
+                    # Normalise: HETATM, residue name LIG, chain Z
+                    # PDB cols (0-based): 0-5 record, 6-10 serial, 11 blank,
+                    # 12-15 atom name, 16 altloc, 17-19 resname, 20 blank,
+                    # 21 chain, 22-25 resseq, rest = coords …
+                    padded = line.rstrip().ljust(80)
+                    new = "HETATM" + padded[6:17] + "LIG" + padded[20:21] + "Z" + padded[22:]
+                    out.write(new.rstrip() + "\n")
+                # CONECT records omitted — serial numbers don't match the
+                # combined PDB so they create phantom long-range bonds in viewers.
         out.write("END\n")
     return complex_pdb
 
@@ -287,7 +352,6 @@ def predict(
 
             # ── Receptor ─────────────────────────────────────────────────
             if receptor_pdb_path:
-                # Copy into workdir so fpocket output lands predictably in wd
                 receptor_pdb = os.path.join(wd, "receptor.pdb")
                 shutil.copy2(receptor_pdb_path, receptor_pdb)
             elif target:
@@ -298,6 +362,7 @@ def predict(
             else:
                 raise ValueError("No receptor input: provide target_sequence or receptor_pdb")
 
+            receptor_pdb = _clean_receptor_pdb(receptor_pdb, wd)
             receptor_pdbqt = _pdb_to_pdbqt(receptor_pdb, wd)
             box = _fpocket_box(receptor_pdb, wd)
             delta_g, docked_pdbqt = _run_vina(receptor_pdbqt, ligand_pdbqt, box, wd)

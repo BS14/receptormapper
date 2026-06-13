@@ -1,4 +1,5 @@
 import hashlib
+import io
 import json
 import logging
 import os
@@ -8,6 +9,7 @@ from typing import Optional
 
 import boto3
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
+from rdkit import Chem
 
 from src import assembler, binding, cache
 
@@ -63,6 +65,19 @@ def _save_bytes(data: bytes, job_id: str, filename: str) -> str:
     return dest
 
 
+def _extract_smiles(ligand_bytes: bytes, filename: str) -> Optional[str]:
+    ext = Path(filename).suffix.lower()
+    if ext in (".sdf", ".mol"):
+        try:
+            supplier = Chem.ForwardSDMolSupplier(io.BytesIO(ligand_bytes))
+            for mol in supplier:
+                if mol is not None:
+                    return Chem.MolToSmiles(mol)
+        except Exception:
+            pass
+    return None
+
+
 def _cleanup(job_id: str) -> None:
     job_dir = os.path.join(_UPLOAD_DIR, job_id)
     if os.path.exists(job_dir):
@@ -78,6 +93,7 @@ def _run_prediction(
     cache_hash: str,
     receptor_filename: str,
     ligand_filename: str,
+    ligand_bytes: bytes,
 ) -> None:
     logger.info("Job %s started", job_id)
     try:
@@ -96,7 +112,15 @@ def _run_prediction(
             job_id=job_id,
         )
 
-        result = assembler.build(binding_result)
+        smiles = _extract_smiles(ligand_bytes, ligand_filename)
+        inputs = {
+            "job_id": job_id,
+            "receptor_name": Path(receptor_filename).stem,
+            "ligand_name": Path(ligand_filename).stem,
+            "smiles": smiles,
+        }
+
+        result = assembler.build(binding_result, inputs=inputs)
         cache.set_by_key(cache_hash, result)
         cache.write_job_complete(job_id, result)
         logger.info("Job %s complete — flags=%d", job_id, result["summary"]["total_flags"])
@@ -144,6 +168,7 @@ async def predict(
         _run_prediction,
         job_id, receptor_path, ligand_path,
         cache_hash, receptor_filename, ligand_filename,
+        ligand_bytes,
     )
     return {"status": "queued", "job_id": job_id}
 
@@ -172,7 +197,7 @@ def get_job(job_id: str):
         return {
             "status": "complete",
             "result": result,
-            "meta": {"job_name": job.get("job_name", "")},
+            "meta": {"job_name": job.get("job_name", ""), "job_id": job_id},
         }
 
     if status == "failed":

@@ -14,17 +14,17 @@ import os
 import boto3
 from botocore.exceptions import ClientError
 
-ENDPOINT = os.environ.get("AWS_ENDPOINT_URL", "http://localhost:8000")
-REGION   = os.environ.get("AWS_REGION", "us-east-1")
-TABLE    = os.environ.get("DYNAMODB_TABLE", "receptormapper_jobs")
+REGION = os.environ.get("AWS_REGION", "us-east-1")
+TABLE  = os.environ.get("DYNAMODB_TABLE", "receptormapper_jobs")
 
-dynamo = boto3.client(
-    "dynamodb",
-    endpoint_url=ENDPOINT,
-    region_name=REGION,
-    aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID", "fake"),
-    aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY", "fake"),
-)
+_kwargs = {"region_name": REGION}
+_endpoint = os.environ.get("AWS_ENDPOINT_URL")
+if _endpoint:
+    _kwargs["endpoint_url"] = _endpoint
+    _kwargs["aws_access_key_id"] = os.environ.get("AWS_ACCESS_KEY_ID", "fake")
+    _kwargs["aws_secret_access_key"] = os.environ.get("AWS_SECRET_ACCESS_KEY", "fake")
+
+dynamo = boto3.client("dynamodb", **_kwargs)
 
 try:
     dynamo.create_table(

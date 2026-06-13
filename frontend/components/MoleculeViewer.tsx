@@ -18,7 +18,7 @@ export default function MoleculeViewer({ complexUrl }: MoleculeViewerProps) {
 
     (async () => {
       try {
-        const [{ default: $3Dmol }, pdbText] = await Promise.all([
+        const [$3Dmol, pdbText] = await Promise.all([
           import("3dmol"),
           fetch(complexUrl).then((r) => {
             if (!r.ok) throw new Error(`Failed to fetch PDB: ${r.status}`);
@@ -29,24 +29,37 @@ export default function MoleculeViewer({ complexUrl }: MoleculeViewerProps) {
         if (cancelled || !containerRef.current) return;
 
         const viewer = ($3Dmol as any).createViewer(containerRef.current, {
-          backgroundColor: "0xffffff",
+          backgroundColor: "white",
         });
 
         viewer.addModel(pdbText, "pdb");
 
-        // Receptor chains — cartoon, spectrum coloring
+        // Receptor: semi-transparent cartoon
         viewer.setStyle(
-          { atom: "CA" },
-          { cartoon: { color: "spectrum", opacity: 0.85 } }
+          { hetflag: false },
+          { cartoon: { color: "spectrum", opacity: 0.65 } }
         );
 
-        // Ligand (last chain / HETATM) — thick sticks, green carbon
+        // Binding pocket: residues within 5 Å of ligand as sticks
         viewer.setStyle(
-          { hetflag: true },
-          { stick: { colorscheme: "greenCarbon", radius: 0.2 } }
+          { within: { distance: 5, sel: { resn: "LIG" } } },
+          {
+            cartoon: { color: "spectrum", opacity: 0.65 },
+            stick: { colorscheme: "whiteCarbon", radius: 0.12, opacity: 0.9 },
+          }
         );
 
-        viewer.zoomTo();
+        // Ligand (HETATM LIG): green sticks + small spheres for visibility
+        viewer.setStyle(
+          { resn: "LIG" },
+          {
+            stick: { colorscheme: "greenCarbon", radius: 0.18 },
+            sphere: { colorscheme: "greenCarbon", scale: 0.22 },
+          }
+        );
+
+        // Zoom into the ligand so binding pose is front-and-centre
+        viewer.zoomTo({ resn: "LIG" });
         viewer.render();
         setLoading(false);
       } catch (err) {

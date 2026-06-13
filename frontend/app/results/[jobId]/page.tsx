@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import BindingAffinityCard from "@/components/BindingAffinityCard";
 import MoleculeViewer from "@/components/MoleculeViewer";
+import ReceptorInfoPanel from "@/components/ReceptorInfoPanel";
+import LigandInfoPanel from "@/components/LigandInfoPanel";
 import type { PredictionResult, JobMeta } from "@/lib/types";
 
 const POLL_INTERVAL_MS = 2000;
@@ -79,7 +81,7 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
           {meta?.job_name && (
             <p className="text-sm text-stone-500 mt-0.5">{meta.job_name}</p>
           )}
-          <p className="text-xs text-stone-400 font-mono mt-0.5">job {jobId}</p>
+          <p className="text-xs text-stone-400 font-mono mt-0.5">job {meta?.job_id ?? jobId}</p>
         </div>
         <div className="no-print flex items-center gap-3">
           <button
@@ -119,6 +121,25 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
         </div>
       )}
 
+      {/* Job ID */}
+      <div className="flex items-center gap-2 text-xs text-stone-400">
+        <span className="font-semibold uppercase tracking-widest">Job ID</span>
+        <span className="font-mono">{meta?.job_id ?? jobId}</span>
+      </div>
+
+      {/* Receptor info — fetches RCSB live */}
+      {result.inputs?.receptor_name && (
+        <ReceptorInfoPanel receptorName={result.inputs.receptor_name} />
+      )}
+
+      {/* Ligand info — fetches PubChem live */}
+      {result.inputs?.smiles && (
+        <LigandInfoPanel
+          smiles={result.inputs.smiles}
+          ligandName={result.inputs.ligand_name}
+        />
+      )}
+
       {/* Binding affinity card */}
       <BindingAffinityCard binding={result.binding} />
 
@@ -155,14 +176,14 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
             Journal of Chemical Information and Modeling, 61(8), 3891–3898.
           </li>
           <li>
-            Lin, Z., Akin, H., Rao, R., Hie, B., Zhu, Z., Lu, W., … Rives, A. (2023).{" "}
-            <span className="italic">Evolutionary-scale prediction of atomic-level protein structure with a language model.</span>{" "}
-            Science, 379(6637), 1123–1130. (ESMFold)
+            Trott, O., &amp; Olson, A. J. (2010).{" "}
+            <span className="italic">AutoDock Vina: improving the speed and accuracy of docking with a new scoring function, efficient optimization, and multithreading.</span>{" "}
+            Journal of Computational Chemistry, 31(2), 455–461.
           </li>
           <li>
-            Le Guilloux, V., Schmidtke, P., &amp; Tuffery, P. (2009).{" "}
-            <span className="italic">Fpocket: An open source platform for ligand pocket detection.</span>{" "}
-            BMC Bioinformatics, 10, 168.
+            Kim, S., Chen, J., Cheng, T., et al. (2023).{" "}
+            <span className="italic">PubChem 2023 update.</span>{" "}
+            Nucleic Acids Research, 51(D1), D1373–D1380.
           </li>
         </ol>
       </div>
