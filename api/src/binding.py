@@ -12,6 +12,8 @@ import requests
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
+from src import rmsd as rmsd_module
+
 logger = logging.getLogger(__name__)
 
 _RT_LN10 = 1.420  # kcal/mol at 310 K
@@ -114,6 +116,19 @@ def _pdb_to_pdbqt(pdb_path: str, workdir: str) -> str:
 
 # ── Binding site detection ────────────────────────────────────────────────────
 
+def _native_ligand_box(original_pdb: str) -> Optional[dict]:
+    """Use crystal ligand centroid as box center when available (beats fpocket accuracy)."""
+    native = rmsd_module.extract_native_ligand(original_pdb)
+    if native is None:
+        return None
+    cx, cy, cz = native["center"]
+    logger.info("Using native ligand centroid as box: (%.2f, %.2f, %.2f)", cx, cy, cz)
+    return {
+        "center_x": cx, "center_y": cy, "center_z": cz,
+        "size_x": 25.0, "size_y": 25.0, "size_z": 25.0,
+    }
+
+
 def _fpocket_box(pdb_path: str, workdir: str) -> dict:
     """Run fpocket on receptor PDB, return box for best pocket."""
     subprocess.run(["fpocket", "-f", pdb_path], capture_output=True, cwd=workdir)
@@ -173,9 +188,15 @@ def _whole_protein_box(pdb_path: str) -> dict:
 
 # ── Vina docking ──────────────────────────────────────────────────────────────
 
-def _run_vina(receptor_pdbqt: str, ligand_pdbqt: str, box: dict, workdir: str) -> tuple[float, str]:
-    """Run AutoDock Vina. Returns (best_delta_g, docked_pdbqt_path)."""
-    out_path = os.path.join(workdir, "docked.pdbqt")
+def _run_vina(
+    receptor_pdbqt: str,
+    ligand_pdbqt: str,
+    box: dict,
+    workdir: str,
+    out_prefix: str = "docked",
+) -> tuple[list[float], str]:
+    """Run AutoDock Vina. Returns (all_pose_dg_list, docked_pdbqt_path)."""
+    out_path = os.path.join(workdir, f"{out_prefix}.pdbqt")
     cmd = [
         "vina",
         "--receptor", receptor_pdbqt,
@@ -194,15 +215,22 @@ def _run_vina(receptor_pdbqt: str, ligand_pdbqt: str, box: dict, workdir: str) -
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=240)
     logger.debug("Vina stdout: %s", result.stdout)
 
+    pose_dg: list[float] = []
     for line in result.stdout.splitlines():
         parts = line.split()
-        if parts and parts[0] == "1" and len(parts) >= 2:
+        if len(parts) >= 2 and parts[0].isdigit():
             try:
-                return float(parts[1]), out_path
+                rank = int(parts[0])
+                if rank == len(pose_dg) + 1:
+                    pose_dg.append(float(parts[1]))
             except ValueError:
                 continue
 
-    raise RuntimeError(f"Could not parse Vina output:\n{result.stdout}\n{result.stderr}")
+    if not pose_dg:
+        raise RuntimeError(f"Could not parse Vina output:\n{result.stdout}\n{result.stderr}")
+
+    logger.info("Vina: %d poses, best ΔG = %.2f kcal/mol", len(pose_dg), pose_dg[0])
+    return pose_dg, out_path
 
 
 # ── Complex assembly ──────────────────────────────────────────────────────────
@@ -226,41 +254,166 @@ def _extract_best_pose(docked_pdbqt: str, workdir: str) -> str:
     return out
 
 
-def _build_complex_pdb(receptor_pdb: str, docked_pdbqt: str, workdir: str) -> str:
-    """Merge receptor PDB + docked ligand PDBQT into a single complex PDB.
+def _parse_pdb_models(pdb_path: str) -> list[list[str]]:
+    """Split a multi-model PDB into lists of ATOM/HETATM lines per model."""
+    models: list[list[str]] = []
+    current: list[str] = []
+    has_markers = False
+    with open(pdb_path) as f:
+        for line in f:
+            if line.startswith("MODEL"):
+                has_markers = True
+                current = []
+            elif line.startswith("ENDMDL"):
+                if current:
+                    models.append(current)
+                current = []
+            elif line.startswith(("ATOM", "HETATM")):
+                current.append(line)
+    if not has_markers and current:
+        models.append(current)
+    return models
 
-    Ligand atoms are forced to HETATM residue LIG chain Z so the 3-D viewer
-    can reliably select them with { resn: 'LIG' }.
+
+def _build_complex_pdb(
+    receptor_pdb: str,
+    docked_pdbqt: str,
+    workdir: str,
+    native_atoms: Optional[list] = None,
+) -> str:
+    """Merge receptor + all Vina poses into a multi-model complex PDB.
+
+    Each MODEL contains: receptor ATOM records + one ligand pose (LIG chain Z)
+    + crystal native ligand (NAT chain X, optional, same across all models).
+    3Dmol addModelsAsFrames() + setFrame(n) drives pose switching in the UI.
     """
-    best_pose_pdbqt = _extract_best_pose(docked_pdbqt, workdir)
-    ligand_pdb = os.path.join(workdir, "ligand_docked.pdb")
+    all_poses_pdb = os.path.join(workdir, "all_poses.pdb")
     subprocess.run(
-        ["obabel", best_pose_pdbqt, "-O", ligand_pdb, "-d"],
+        ["obabel", docked_pdbqt, "-O", all_poses_pdb, "-d"],
         capture_output=True,
     )
+    pose_models = _parse_pdb_models(all_poses_pdb)
+    if not pose_models:
+        pose_models = [_extract_best_pose_lines(docked_pdbqt)]
+
+    # Pre-read receptor (once for all models)
+    receptor_lines: list[str] = []
+    max_receptor_serial = 0
+    with open(receptor_pdb) as f:
+        for line in f:
+            if line.startswith("END"):
+                continue
+            receptor_lines.append(line)
+            if line.startswith(("ATOM", "HETATM")):
+                try:
+                    max_receptor_serial = max(max_receptor_serial, int(line[6:11]))
+                except ValueError:
+                    pass
 
     complex_pdb = os.path.join(workdir, "complex.pdb")
     with open(complex_pdb, "w") as out:
-        with open(receptor_pdb) as f:
-            for line in f:
-                if line.startswith("END"):
-                    continue
+        for model_idx, pose_lines in enumerate(pose_models, 1):
+            out.write(f"MODEL {model_idx:8d}\n")
+
+            for line in receptor_lines:
                 out.write(line)
-        out.write("TER\n")
-        with open(ligand_pdb) as f:
-            for line in f:
+            out.write("TER\n")
+
+            serial = max_receptor_serial + 1
+            for line in pose_lines:
                 if line.startswith(("ATOM", "HETATM")):
-                    # Normalise: HETATM, residue name LIG, chain Z
-                    # PDB cols (0-based): 0-5 record, 6-10 serial, 11 blank,
-                    # 12-15 atom name, 16 altloc, 17-19 resname, 20 blank,
-                    # 21 chain, 22-25 resseq, rest = coords …
                     padded = line.rstrip().ljust(80)
-                    new = "HETATM" + padded[6:17] + "LIG" + padded[20:21] + "Z" + padded[22:]
+                    new = (
+                        f"HETATM{serial:5d} "
+                        + padded[12:17]
+                        + "LIG"
+                        + padded[20:21]
+                        + "Z"
+                        + padded[22:]
+                    )
                     out.write(new.rstrip() + "\n")
-                # CONECT records omitted — serial numbers don't match the
-                # combined PDB so they create phantom long-range bonds in viewers.
+                    serial += 1
+            out.write("TER\n")
+
+            if native_atoms:
+                for atom in native_atoms:
+                    x, y, z = atom["coords"]
+                    elem = atom.get("element", "C")[:2].strip()
+                    aname = atom["name"][:4].ljust(4)
+                    out.write(
+                        f"HETATM{serial:5d} {aname} NAT X   1    "
+                        f"{x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00          {elem:>2s}\n"
+                    )
+                    serial += 1
+                out.write("TER\n")
+
+            out.write("ENDMDL\n")
         out.write("END\n")
+
     return complex_pdb
+
+
+def _extract_best_pose_lines(docked_pdbqt: str) -> list[str]:
+    """Fallback: extract MODEL 1 atom lines when obabel multi-model conversion fails."""
+    lines: list[str] = []
+    in_model1 = False
+    with open(docked_pdbqt) as f:
+        for line in f:
+            if line.startswith("MODEL"):
+                in_model1 = (line.split()[1] if len(line.split()) > 1 else "1") == "1"
+            elif line.startswith("ENDMDL") and in_model1:
+                break
+            elif in_model1 and line.startswith(("ATOM", "HETATM")):
+                lines.append(line)
+    return lines
+
+
+def _write_native_pdb(native_atoms: list, path: str) -> None:
+    """Write extracted crystal ligand atoms as a minimal PDB so obabel can read it."""
+    with open(path, "w") as f:
+        for i, atom in enumerate(native_atoms, 1):
+            x, y, z = atom["coords"]
+            elem = atom.get("element", "C")[:2].strip()
+            aname = atom["name"][:4].ljust(4)
+            f.write(
+                f"HETATM{i:5d} {aname} LIG A   1    "
+                f"{x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00          {elem:>2s}\n"
+            )
+        f.write("END\n")
+
+
+def _dock_native_ligand(
+    native_atoms: list,
+    receptor_pdbqt: str,
+    box: dict,
+    workdir: str,
+) -> Optional[dict]:
+    """Re-dock the crystal native ligand and return its affinity metrics."""
+    if not native_atoms:
+        return None
+    try:
+        native_pdb = os.path.join(workdir, "native_ligand.pdb")
+        native_pdbqt = os.path.join(workdir, "native_ligand.pdbqt")
+        _write_native_pdb(native_atoms, native_pdb)
+        subprocess.run(
+            ["obabel", native_pdb, "-O", native_pdbqt,
+             "--partialcharge", "gasteiger", "-h"],
+            check=True, capture_output=True,
+        )
+        native_dg_list, _ = _run_vina(
+            receptor_pdbqt, native_pdbqt, box, workdir, out_prefix="native_docked"
+        )
+        native_dg = native_dg_list[0]
+        native_pic50 = max(3.0, min(12.0, _delta_g_to_pic50(native_dg)))
+        logger.info("Native ligand re-docked: ΔG=%.2f pIC50=%.2f", native_dg, native_pic50)
+        return {
+            "delta_g": round(native_dg, 2),
+            "pIC50": round(native_pic50, 2),
+            "ic50_nM": round(10 ** (9 - native_pic50), 1),
+        }
+    except Exception:
+        logger.exception("Native ligand re-docking failed")
+        return None
 
 
 def _upload_complex(complex_pdb: str, job_id: str) -> Optional[str]:
@@ -362,13 +515,36 @@ def predict(
             else:
                 raise ValueError("No receptor input: provide target_sequence or receptor_pdb")
 
+            original_pdb = receptor_pdb  # keep pre-cleaning path for RMSD + native extraction
             receptor_pdb = _clean_receptor_pdb(receptor_pdb, wd)
             receptor_pdbqt = _pdb_to_pdbqt(receptor_pdb, wd)
-            box = _fpocket_box(receptor_pdb, wd)
-            delta_g, docked_pdbqt = _run_vina(receptor_pdbqt, ligand_pdbqt, box, wd)
+            box = _native_ligand_box(original_pdb) or _fpocket_box(receptor_pdb, wd)
+            all_dg, docked_pdbqt = _run_vina(receptor_pdbqt, ligand_pdbqt, box, wd)
+            delta_g = all_dg[0]
 
-            complex_pdb = _build_complex_pdb(receptor_pdb, docked_pdbqt, wd)
+            best_pose_pdbqt = _extract_best_pose(docked_pdbqt, wd)
+            rmsd_data = rmsd_module.run_analysis(original_pdb, best_pose_pdbqt, smiles or "")
+            native_atoms = rmsd_data.pop("native_atoms", None)
+
+            pose_metrics = rmsd_module.per_pose_analysis(docked_pdbqt, original_pdb)
+            native_docking = _dock_native_ligand(native_atoms, receptor_pdbqt, box, wd)
+
+            complex_pdb = _build_complex_pdb(receptor_pdb, docked_pdbqt, wd, native_atoms)
             docked_url = _upload_complex(complex_pdb, job_id or "unknown") if job_id else None
+
+        # Build per-pose array
+        poses = []
+        for i, dg in enumerate(all_dg):
+            p_pic50 = max(3.0, min(12.0, _delta_g_to_pic50(dg)))
+            entry: dict = {
+                "rank": i + 1,
+                "delta_g": round(dg, 2),
+                "pic50": round(p_pic50, 2),
+                "ic50_nM": round(10 ** (9 - p_pic50), 1),
+            }
+            if i < len(pose_metrics):
+                entry.update(pose_metrics[i])
+            poses.append(entry)
 
         pic50 = max(3.0, min(12.0, _delta_g_to_pic50(delta_g)))
         result = {
@@ -377,9 +553,17 @@ def predict(
             "ic50_nM": round(10 ** (9 - pic50), 1),
             "confidence": _vina_confidence(delta_g),
             "strength": _strength_label(pic50),
+            "rmsd": rmsd_data,
+            "poses": poses,
         }
+        if native_docking:
+            ddg = round(delta_g - native_docking["delta_g"], 2)
+            native_docking["delta_delta_g"] = ddg
+            native_docking["selectivity"] = (
+                "stronger" if ddg < -0.5 else "weaker" if ddg > 0.5 else "similar"
+            )
+            result["native_docking"] = native_docking
         if docked_url:
-            # docked_url is an S3 key — presigned URL generated at serve time
             result["docked_complex_key"] = docked_url
         return result
 

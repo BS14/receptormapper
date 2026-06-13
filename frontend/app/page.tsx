@@ -4,6 +4,23 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import FileDropzone from "@/components/FileDropzone";
 
+const VALIDATED_PAIRS = [
+  { pdb: "1IEP", compound: "Imatinib",    cid: "5291",      target: "ABL1 kinase",         expIC50: "25 nM",   note: "Official Vina benchmark" },
+  { pdb: "2ITY", compound: "Erlotinib",   cid: "176870",    target: "EGFR kinase",          expIC50: "2 nM",    note: "Kinase inhibitor" },
+  { pdb: "1HSG", compound: "Indinavir",   cid: "5362440",   target: "HIV-1 protease",       expIC50: "0.34 nM", note: "Official Vina tutorial" },
+  { pdb: "4DJV", compound: "Lapatinib",   cid: "208908",    target: "HER2/EGFR",            expIC50: "10 nM",   note: "Kinase inhibitor" },
+  { pdb: "2CJI", compound: "Oseltamivir", cid: "65028",     target: "Flu neuraminidase",    expIC50: "1 nM",    note: "Antiviral" },
+  { pdb: "1DKF", compound: "Methotrexate",cid: "126941",    target: "DHFR",                 expIC50: "1 pM",    note: "Antifolate" },
+] as const;
+
+const LIMITATIONS = [
+  { label: "Nuclear hormone receptors",  examples: "ER, AR, MR, GR, PR",   reason: "Require flexible receptor — Vina rigid underestimates by 2–3 kcal/mol" },
+  { label: "Metalloprotease active sites", examples: "MMP, ADAM, ACE",     reason: "Zn²⁺/Fe coordination ignored by Vina scoring function" },
+  { label: "GPCRs",                       examples: "β2-AR, D2, CXCR4",    reason: "Transmembrane binding pocket poorly sampled by rigid docking" },
+  { label: "Very large ligands",          examples: "MW > 600 Da",          reason: "Too many rotatable bonds → exhaustiveness 16 insufficient" },
+  { label: "Apo structures",             examples: "No HETATM in PDB",     reason: "Falls back to fpocket — box center may not match binding site" },
+];
+
 function timeAgo(unixSecs: number): string {
   const diff = Math.floor(Date.now() / 1000) - unixSecs;
   if (diff < 60) return "just now";
@@ -84,6 +101,27 @@ export default function HomePage() {
       setError((e as Error).message);
     } finally {
       setFetchingLigand(false);
+    }
+  }
+
+  // ── Load validated pair ─────────────────────────────────────────────────────
+  async function loadPair(pdb: string, compound: string) {
+    setPdbId(pdb);
+    setCompoundQuery(compound);
+    setReceptorFile(null);
+    setLigandFile(null);
+    setError(null);
+    const [receptorRes, ligandRes] = await Promise.allSettled([
+      fetch(`https://files.rcsb.org/download/${pdb}.pdb`),
+      fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(compound)}/SDF`),
+    ]);
+    if (receptorRes.status === "fulfilled" && receptorRes.value.ok) {
+      const blob = await receptorRes.value.blob();
+      setReceptorFile(new File([blob], `${pdb}.pdb`, { type: "chemical/x-pdb" }));
+    }
+    if (ligandRes.status === "fulfilled" && ligandRes.value.ok) {
+      const blob = await ligandRes.value.blob();
+      setLigandFile(new File([blob], `${compound.replace(/\s+/g, "_")}.sdf`, { type: "chemical/x-mdl-sdfile" }));
     }
   }
 
@@ -286,6 +324,53 @@ export default function HomePage() {
             >
               PubChem Compound Database ↗
             </a>
+          </div>
+
+          {/* ── Validated test pairs ── */}
+          <div className="pt-4 border-t border-stone-100 space-y-2">
+            <div>
+              <p className="text-xs font-semibold text-stone-700 uppercase tracking-widest">Validated Test Pairs</p>
+              <p className="text-[10px] text-stone-400 mt-0.5">Click to auto-fill and fetch</p>
+            </div>
+            {VALIDATED_PAIRS.map((pair) => (
+              <button
+                key={pair.pdb}
+                type="button"
+                onClick={() => loadPair(pair.pdb, pair.compound)}
+                className="w-full text-left rounded-md border border-stone-200 bg-white hover:bg-green-50 hover:border-green-300 px-2.5 py-2 transition-colors group"
+              >
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-xs font-mono font-bold text-stone-800 group-hover:text-green-800">
+                    {pair.pdb}
+                  </span>
+                  <span className="text-[10px] text-stone-400">IC50 {pair.expIC50}</span>
+                </div>
+                <div className="text-[10px] text-stone-600 truncate">
+                  {pair.compound} · {pair.target}
+                </div>
+                <div className="text-[10px] text-green-700 mt-0.5">{pair.note}</div>
+              </button>
+            ))}
+            <p className="text-[10px] text-stone-400 leading-relaxed">
+              Expected ΔG: −5 to −7 weak · −7 to −9 moderate · −9 to −12 strong · below −12 suspicious
+            </p>
+          </div>
+
+          {/* ── System limitations ── */}
+          <div className="pt-4 border-t border-stone-100 space-y-2">
+            <p className="text-xs font-semibold text-stone-700 uppercase tracking-widest">System Limitations</p>
+            <p className="text-[10px] text-stone-500 leading-relaxed">
+              Uses rigid receptor (AutoDock Vina). Results for flexible binding sites may underestimate affinity by 2–3 kcal/mol.
+            </p>
+            <div className="space-y-1.5">
+              {LIMITATIONS.map((lim) => (
+                <div key={lim.label} className="rounded border border-amber-100 bg-amber-50 px-2.5 py-2">
+                  <p className="text-[10px] font-semibold text-amber-800">{lim.label}</p>
+                  <p className="text-[10px] text-amber-700 italic">{lim.examples}</p>
+                  <p className="text-[10px] text-stone-500 leading-relaxed mt-0.5">{lim.reason}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 

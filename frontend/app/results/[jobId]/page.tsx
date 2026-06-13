@@ -6,6 +6,7 @@ import BindingAffinityCard from "@/components/BindingAffinityCard";
 import MoleculeViewer from "@/components/MoleculeViewer";
 import ReceptorInfoPanel from "@/components/ReceptorInfoPanel";
 import LigandInfoPanel from "@/components/LigandInfoPanel";
+import RmsdPanel from "@/components/RmsdPanel";
 import type { PredictionResult, JobMeta } from "@/lib/types";
 
 const POLL_INTERVAL_MS = 2000;
@@ -140,6 +141,11 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
         />
       )}
 
+      {/* RMSD validation panel */}
+      {result.binding.rmsd?.available && (
+        <RmsdPanel rmsd={result.binding.rmsd} />
+      )}
+
       {/* Binding affinity card */}
       <BindingAffinityCard binding={result.binding} />
 
@@ -158,7 +164,10 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
               Download PDB
             </a>
           </div>
-          <MoleculeViewer complexUrl={result.binding.docked_complex_url} />
+          <MoleculeViewer
+            complexUrl={result.binding.docked_complex_url}
+            poses={result.binding.poses}
+          />
         </div>
       ) : (
         <div className="rounded-md bg-stone-50 border border-stone-200 px-4 py-6 text-center text-xs text-stone-400">
