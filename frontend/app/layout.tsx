@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { Source_Serif_4, Space_Grotesk } from "next/font/google";
+import { Audiowide, IBM_Plex_Serif } from "next/font/google";
 import "./globals.css";
 
-const sourceSerif4 = Source_Serif_4({
+const audiowide = Audiowide({
   subsets: ["latin"],
-  variable: "--font-source-serif",
+  weight: "400",
+  variable: "--font-audiowide",
   display: "swap",
 });
 
-const spaceGrotesk = Space_Grotesk({
+const ibmPlexSerif = IBM_Plex_Serif({
   subsets: ["latin"],
-  variable: "--font-space-grotesk",
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-ibm-plex-serif",
   display: "swap",
 });
 
@@ -33,8 +35,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
 
   return (
-    <html lang="en" className={`bg-stone-50 ${sourceSerif4.variable} ${spaceGrotesk.variable}`}>
-      <body className="min-h-screen bg-stone-50 text-stone-800 antialiased flex flex-col">
+    <html lang="en" className={`bg-stone-50 ${audiowide.variable} ${ibmPlexSerif.variable}`}>
+      <body className="min-h-screen bg-stone-50 text-stone-800 antialiased flex flex-col font-serif">
         <header className="px-6 py-4">
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <Image
@@ -45,7 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               className="rounded-lg"
             />
             <div className="flex items-baseline gap-3">
-              <span className="text-lg font-semibold tracking-tight text-green-700" style={{ fontFamily: "var(--font-space-grotesk)" }}>
+              <span className="text-lg font-semibold tracking-tight text-green-700" style={{ fontFamily: "var(--font-audiowide)" }}>
                 ReceptorMapper
               </span>
               <span className="text-xs text-stone-500 uppercase tracking-widest">
@@ -68,7 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   height={32}
                   className="rounded-lg opacity-80"
                 />
-                <span className="text-sm font-medium text-stone-600" style={{ fontFamily: "var(--font-space-grotesk)" }}>ReceptorMapper</span>
+                <span className="text-sm font-medium text-stone-600" style={{ fontFamily: "var(--font-audiowide)" }}>ReceptorMapper</span>
               </div>
 
               <blockquote className="max-w-xl text-sm italic text-stone-500 leading-relaxed">

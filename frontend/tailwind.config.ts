@@ -5,7 +5,14 @@ const config: Config = {
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
   ],
-  theme: { extend: {} },
+  theme: {
+    extend: {
+      fontFamily: {
+        serif: ["var(--font-ibm-plex-serif)", "Georgia", "serif"],
+        display: ["var(--font-audiowide)", "sans-serif"],
+      },
+    },
+  },
   plugins: [],
 };
 
