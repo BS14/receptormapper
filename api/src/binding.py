@@ -208,11 +208,11 @@ def _run_vina(
         "--size_y", str(box["size_y"]),
         "--size_z", str(box["size_z"]),
         "--out", out_path,
-        "--exhaustiveness", "16",
+        "--exhaustiveness", "4",
         "--num_modes", "5",
-        "--cpu", str(os.cpu_count() or 2),
+        "--cpu", "1",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=240)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
     logger.debug("Vina stdout: %s", result.stdout)
 
     pose_dg: list[float] = []
