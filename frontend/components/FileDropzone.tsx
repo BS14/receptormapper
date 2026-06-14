@@ -28,11 +28,11 @@ export default function FileDropzone({ label, accept, file, onChange, hint }: Fi
       onDragEnter={() => setDragging(true)}
       onDragLeave={() => setDragging(false)}
       onClick={() => inputRef.current?.click()}
-      className={`relative cursor-pointer rounded-md border-2 border-dashed transition-all px-4 py-3 ${
-        dragging
-          ? "border-coral bg-coral/10 scale-[1.01] shadow-md"
-          : "border-cream-dark hover:border-teal bg-cream/60 hover:bg-teal/5"
-      }`}
+      className="relative cursor-pointer rounded-md border-2 border-dashed transition-all px-4 py-3"
+      style={dragging
+        ? { borderColor: "#F48F68", backgroundColor: "#F48F6818", transform: "scale(1.01)", boxShadow: "0 4px 12px #F48F6830" }
+        : { borderColor: "#f0e4c0", backgroundColor: "#FFF6DE99" }
+      }
     >
       <input
         ref={inputRef}
@@ -41,20 +41,21 @@ export default function FileDropzone({ label, accept, file, onChange, hint }: Fi
         className="hidden"
         onChange={(e) => onChange(e.target.files?.[0] ?? null)}
       />
-      <p className="text-xs font-medium text-ink-muted">{label}</p>
+      <p className="text-xs font-medium" style={{ color: "#6b5c48" }}>{label}</p>
       {file ? (
         <div className="mt-1 flex items-center justify-between gap-2">
-          <span className="text-xs text-teal-dark font-mono truncate">{file.name}</span>
+          <span className="text-xs font-mono truncate" style={{ color: "#5bbfbd" }}>{file.name}</span>
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onChange(null); if (inputRef.current) inputRef.current.value = ""; }}
-            className="text-xs text-ink-faint hover:text-coral-dark flex-shrink-0"
+            className="text-xs flex-shrink-0 transition-colors"
+            style={{ color: "#a89880" }}
           >
             ✕
           </button>
         </div>
       ) : (
-        <p className={`mt-0.5 text-xs font-medium transition-colors ${dragging ? "text-coral-dark" : "text-ink-faint"}`}>
+        <p className="mt-0.5 text-xs font-medium transition-colors" style={{ color: dragging ? "#d96a44" : "#a89880" }}>
           {dragging ? "Release to upload" : (hint ?? `Drop ${accept} here or click to browse`)}
         </p>
       )}

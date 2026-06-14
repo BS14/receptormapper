@@ -175,9 +175,9 @@ export default function HomePage() {
                   type="button"
                   onClick={fetchFromRCSB}
                   disabled={!pdbId.trim() || fetchingReceptor}
-                  className="px-4 py-2 rounded-md bg-teal hover:bg-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-ink whitespace-nowrap transition-colors flex items-center gap-1.5"
+                  style={{ backgroundColor: "#8BDFDD", color: "#2c2218" }}
+                  className="px-4 py-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold whitespace-nowrap transition-opacity flex items-center gap-1.5 hover:brightness-90"
                 >
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-ink/40" />
                   {fetchingReceptor ? "Fetching…" : "Fetch RCSB"}
                 </button>
               </div>
@@ -209,9 +209,9 @@ export default function HomePage() {
                   type="button"
                   onClick={fetchFromPubChem}
                   disabled={!compoundQuery.trim() || fetchingLigand}
-                  className="px-4 py-2 rounded-md bg-coral hover:bg-coral-dark disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-white whitespace-nowrap transition-colors flex items-center gap-1.5"
+                  style={{ backgroundColor: "#F48F68", color: "#ffffff" }}
+                  className="px-4 py-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold whitespace-nowrap transition-opacity flex items-center gap-1.5 hover:brightness-90"
                 >
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-white/50" />
                   {fetchingLigand ? "Fetching…" : "Fetch PubChem"}
                 </button>
               </div>
@@ -248,7 +248,8 @@ export default function HomePage() {
             <button
               type="submit"
               disabled={loading || !receptorFile || !ligandFile}
-              className="w-full py-2.5 rounded-md bg-coral hover:bg-coral-dark disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-white transition-colors"
+              style={{ backgroundColor: "#F48F68", color: "#ffffff" }}
+              className="w-full py-2.5 rounded-md disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold transition-opacity hover:brightness-90"
             >
               {loading ? "Submitting…" : "Run Docking"}
             </button>
@@ -310,19 +311,21 @@ export default function HomePage() {
               href="https://www.rcsb.org"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between gap-2 rounded-md bg-teal/20 hover:bg-teal/40 border border-teal/40 px-3 py-1.5 transition-colors"
+              style={{ backgroundColor: "#8BDFDD33", borderColor: "#8BDFDD99" }}
+              className="flex items-center justify-between gap-2 rounded-md border px-3 py-1.5 transition-all hover:brightness-95"
             >
-              <span className="text-xs font-semibold text-teal-dark">RCSB Protein Data Bank</span>
-              <span className="text-xs text-teal-dark">↗</span>
+              <span className="text-xs font-semibold" style={{ color: "#5bbfbd" }}>RCSB Protein Data Bank</span>
+              <span className="text-xs" style={{ color: "#5bbfbd" }}>↗</span>
             </a>
             <a
               href="https://pubchem.ncbi.nlm.nih.gov"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between gap-2 rounded-md bg-coral/15 hover:bg-coral/30 border border-coral/30 px-3 py-1.5 transition-colors"
+              style={{ backgroundColor: "#F48F6826", borderColor: "#F48F6866" }}
+              className="flex items-center justify-between gap-2 rounded-md border px-3 py-1.5 transition-all hover:brightness-95"
             >
-              <span className="text-xs font-semibold text-coral-dark">PubChem Compound Database</span>
-              <span className="text-xs text-coral-dark">↗</span>
+              <span className="text-xs font-semibold" style={{ color: "#d96a44" }}>PubChem Compound Database</span>
+              <span className="text-xs" style={{ color: "#d96a44" }}>↗</span>
             </a>
           </div>
 
