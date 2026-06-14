@@ -272,6 +272,23 @@ export default function HomePage() {
               {loading ? "Submitting…" : "Run Docking"}
             </button>
           </form>
+
+          {/* ── System limitations ── */}
+          <div className="pt-6 border-t border-stone-200 space-y-2">
+            <p className="text-xs font-semibold text-stone-700 uppercase tracking-widest">System Limitations</p>
+            <p className="text-[10px] text-stone-500 leading-relaxed">
+              Uses rigid receptor (AutoDock Vina). Results for flexible binding sites may underestimate affinity by 2–3 kcal/mol.
+            </p>
+            <div className="space-y-1.5">
+              {LIMITATIONS.map((lim) => (
+                <div key={lim.label} className="rounded border border-amber-100 bg-amber-50 px-2.5 py-2">
+                  <p className="text-[10px] font-semibold text-amber-800">{lim.label}</p>
+                  <p className="text-[10px] text-amber-700 italic">{lim.examples}</p>
+                  <p className="text-[10px] text-stone-500 leading-relaxed mt-0.5">{lim.reason}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* ── Recent docking jobs sidebar ── */}
@@ -356,22 +373,6 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* ── System limitations ── */}
-          <div className="pt-4 border-t border-stone-100 space-y-2">
-            <p className="text-xs font-semibold text-stone-700 uppercase tracking-widest">System Limitations</p>
-            <p className="text-[10px] text-stone-500 leading-relaxed">
-              Uses rigid receptor (AutoDock Vina). Results for flexible binding sites may underestimate affinity by 2–3 kcal/mol.
-            </p>
-            <div className="space-y-1.5">
-              {LIMITATIONS.map((lim) => (
-                <div key={lim.label} className="rounded border border-amber-100 bg-amber-50 px-2.5 py-2">
-                  <p className="text-[10px] font-semibold text-amber-800">{lim.label}</p>
-                  <p className="text-[10px] text-amber-700 italic">{lim.examples}</p>
-                  <p className="text-[10px] text-stone-500 leading-relaxed mt-0.5">{lim.reason}</p>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
 
       </div>

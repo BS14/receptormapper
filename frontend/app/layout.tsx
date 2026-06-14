@@ -69,7 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   {" "}in Nepal
                 </p>
                 <p className="text-stone-400">
-                  &copy; {new Date().getFullYear()} ReceptorMapper. Advancing drug discovery through AI.
+                  &copy; {new Date().getFullYear()} ReceptorMapper. All rights reserved.
                 </p>
               </div>
             </div>
