@@ -63,7 +63,7 @@ function ComparisonTable({ user, native }: { user: BindingResult; native: Native
         <thead>
           <tr className="text-xs uppercase tracking-wide" style={{ color: T.inkFaint }}>
             <th className="text-left font-medium pb-1 w-28" />
-            <th className="text-right font-medium pb-1">Your compound</th>
+            <th className="text-right font-medium pb-1">Test Compound</th>
             <th className="text-right font-medium pb-1">Native ligand</th>
           </tr>
         </thead>
@@ -116,7 +116,7 @@ function ComparisonTable({ user, native }: { user: BindingResult; native: Native
         </tbody>
       </table>
       <p className="text-xs" style={{ color: T.inkFaint }}>
-        ΔΔG = your ΔG − native ΔG · negative = stronger predicted binding than native
+        ΔΔG = test ΔG − native ΔG · negative = stronger predicted binding than native
       </p>
     </div>
   );
