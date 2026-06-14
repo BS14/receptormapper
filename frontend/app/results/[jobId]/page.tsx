@@ -9,7 +9,7 @@ import LigandInfoPanel from "@/components/LigandInfoPanel";
 import RmsdPanel from "@/components/RmsdPanel";
 import type { PredictionResult, JobMeta } from "@/lib/types";
 
-const POLL_INTERVAL_MS = 2000;
+const POLL_INTERVAL_MS = 5000;
 
 export default function ResultsPage({ params }: { params: { jobId: string } }) {
   const { jobId } = params;
