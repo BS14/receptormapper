@@ -159,7 +159,7 @@ export default function HomePage() {
         {/* ── Submission form ── */}
         <div className="lg:col-span-2 space-y-8">
           <div>
-            <h1 className="text-2xl font-bold text-stone-800">Molecular Docking</h1>
+            <h1 className="text-2xl font-bold text-stone-800" style={{ fontFamily: "var(--font-source-serif)" }}>Molecular Docking</h1>
             <p className="mt-1 text-sm text-stone-500">
               Upload a receptor PDB and ligand SDF/mol2 file to run AutoDock Vina
               and visualise the docked complex in 3D.
