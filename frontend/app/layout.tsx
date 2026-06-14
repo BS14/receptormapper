@@ -35,11 +35,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
 
   return (
-    <html lang="en" style={{ backgroundColor: "#FFF6DE" }} className={`${audiowide.variable} ${ibmPlexSerif.variable}`}>
-      <body className="min-h-screen antialiased flex flex-col font-serif" style={{ backgroundColor: "#FFF6DE", color: "#2c2218" }}>
+    <html lang="en" style={{ backgroundColor: "#F8F8F5" }} className={`${audiowide.variable} ${ibmPlexSerif.variable}`}>
+      <body className="min-h-screen antialiased flex flex-col font-serif" style={{ backgroundColor: "#F8F8F5", color: "#2c2218" }}>
 
         {/* ── Header ── */}
-        <header className="px-6 py-4" style={{ borderBottom: "1px solid #f0e4c0", backgroundColor: "#FFF6DE" }}>
+        <header className="px-6 py-4" style={{ borderBottom: "1px solid #e8e8e2", backgroundColor: "#F8F8F5" }}>
           <div className="max-w-6xl mx-auto flex items-center justify-between">
             <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <Image
@@ -52,7 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="flex items-baseline gap-3">
                 <span
                   className="text-lg font-semibold tracking-tight"
-                  style={{ fontFamily: "var(--font-audiowide)", color: "#5bbfbd" }}
+                  style={{ fontFamily: "var(--font-audiowide)", color: "rgb(0, 48, 73)" }}
                 >
                   ReceptorMapper
                 </span>
@@ -67,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="mx-auto max-w-6xl w-full px-6 py-10 flex-1">{children}</main>
 
         {/* ── Footer ── */}
-        <footer className="px-6 py-8 mt-auto" style={{ borderTop: "1px solid #f0e4c0", backgroundColor: "#f0e4c0" }}>
+        <footer className="px-6 py-8 mt-auto" style={{ borderTop: "1px solid #e8e8e2", backgroundColor: "#efefeb" }}>
           <div className="max-w-6xl mx-auto flex flex-col items-center gap-6 text-center">
             <div className="flex items-center gap-3">
               <Image
@@ -79,7 +79,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               />
               <span
                 className="text-sm font-medium"
-                style={{ fontFamily: "var(--font-audiowide)", color: "#6b5c48" }}
+                style={{ fontFamily: "var(--font-audiowide)", color: "rgb(0, 48, 73)" }}
               >
                 ReceptorMapper
               </span>

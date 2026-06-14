@@ -31,7 +31,7 @@ export default function FileDropzone({ label, accept, file, onChange, hint }: Fi
       className="relative cursor-pointer rounded-md border-2 border-dashed transition-all px-4 py-3"
       style={dragging
         ? { borderColor: "#F48F68", backgroundColor: "#F48F6818", transform: "scale(1.01)", boxShadow: "0 4px 12px #F48F6830" }
-        : { borderColor: "#f0e4c0", backgroundColor: "#FFF6DE99" }
+        : { borderColor: "#d8d8d2", backgroundColor: "#eeeee9" }
       }
     >
       <input

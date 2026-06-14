@@ -169,7 +169,8 @@ export default function HomePage() {
                   onChange={(e) => setPdbId(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), fetchFromRCSB())}
                   placeholder="PDB ID — e.g. 1IEP, 2HYY, 1EQG"
-                  className="flex-1 rounded-md bg-white border border-cream-dark px-3 py-2 text-sm text-ink font-mono placeholder-ink-faint focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal"
+                  className="flex-1 rounded-md border px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1"
+                  style={{ backgroundColor: "#eeeee9", borderColor: "#d8d8d2", color: "#2c2218" }}
                 />
                 <button
                   type="button"
@@ -203,7 +204,8 @@ export default function HomePage() {
                   onChange={(e) => setCompoundQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), fetchFromPubChem())}
                   placeholder="Compound name or CID — e.g. Imatinib, 5291, Erlotinib"
-                  className="flex-1 rounded-md bg-white border border-cream-dark px-3 py-2 text-sm text-ink font-mono placeholder-ink-faint focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal"
+                  className="flex-1 rounded-md border px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1"
+                  style={{ backgroundColor: "#eeeee9", borderColor: "#d8d8d2", color: "#2c2218" }}
                 />
                 <button
                   type="button"
@@ -235,7 +237,8 @@ export default function HomePage() {
                 value={jobName}
                 onChange={(e) => setJobName(e.target.value)}
                 placeholder="e.g. Imatinib / ABL1 screen"
-                className="w-full rounded-md bg-white border border-cream-dark px-3 py-2 text-sm text-ink placeholder-ink-faint focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal"
+                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1"
+                style={{ backgroundColor: "#eeeee9", borderColor: "#d8d8d2", color: "#2c2218" }}
               />
             </div>
 
@@ -289,7 +292,8 @@ export default function HomePage() {
                 <li key={job.job_id}>
                   <button
                     onClick={() => router.push(`/results/${job.job_id}`)}
-                    className="w-full text-left rounded-md border border-cream-dark bg-white hover:bg-teal/10 hover:border-teal px-3 py-2.5 transition-colors"
+                    className="w-full text-left rounded-md border px-3 py-2.5 transition-colors"
+                    style={{ backgroundColor: "#eeeee9", borderColor: "#d8d8d2" }}
                   >
                     <p className="text-sm font-medium text-ink truncate">
                       {job.job_name || job.job_id.slice(0, 8)}
@@ -340,7 +344,8 @@ export default function HomePage() {
                 key={pair.pdb}
                 type="button"
                 onClick={() => loadPair(pair.pdb, pair.compound)}
-                className="w-full text-left rounded-md border border-cream-dark bg-white hover:bg-teal/10 hover:border-teal px-2.5 py-2 transition-colors group"
+                className="w-full text-left rounded-md border px-2.5 py-2 transition-colors group"
+                style={{ backgroundColor: "#eeeee9", borderColor: "#d8d8d2" }}
               >
                 <div className="flex items-center justify-between mb-0.5">
                   <span className="text-xs font-mono font-bold text-ink group-hover:text-teal-dark">
