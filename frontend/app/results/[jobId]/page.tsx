@@ -49,10 +49,10 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
   if (error) {
     return (
       <div className="max-w-xl mx-auto mt-20 text-center space-y-4">
-        <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded px-4 py-3">
+        <p className="text-sm text-coral-dark bg-coral/10 border border-coral/30 rounded px-4 py-3">
           {error}
         </p>
-        <button onClick={() => router.push("/")} className="text-sm text-green-700 hover:underline">
+        <button onClick={() => router.push("/")} className="text-sm text-teal-dark hover:underline">
           ← Back to submission
         </button>
       </div>
@@ -63,10 +63,10 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
     return (
       <div className="max-w-xl mx-auto mt-24 text-center space-y-3">
         <div className="flex justify-center">
-          <div className="h-8 w-8 rounded-full border-2 border-green-600 border-t-transparent animate-spin" />
+          <div className="h-8 w-8 rounded-full border-2 border-teal border-t-transparent animate-spin" />
         </div>
-        <p className="text-sm text-stone-500 capitalize">{status}…</p>
-        <p className="text-xs text-stone-400">
+        <p className="text-sm text-ink-muted capitalize">{status}…</p>
+        <p className="text-xs text-ink-faint">
           Running AutoDock Vina — typically 30–120 s
         </p>
       </div>
@@ -75,19 +75,25 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+
+      {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-stone-800">Docking Results</h1>
+          <h1
+            className="text-xl font-bold text-ink"
+            style={{ fontFamily: "var(--font-audiowide)" }}
+          >
+            Docking Results
+          </h1>
           {meta?.job_name && (
-            <p className="text-sm text-stone-500 mt-0.5">{meta.job_name}</p>
+            <p className="text-sm text-ink-muted mt-0.5">{meta.job_name}</p>
           )}
-          <p className="text-xs text-stone-400 font-mono mt-0.5">job {meta?.job_id ?? jobId}</p>
+          <p className="text-xs text-ink-faint font-mono mt-0.5">job {meta?.job_id ?? jobId}</p>
         </div>
         <div className="no-print flex items-center gap-3">
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 rounded-md bg-white hover:bg-stone-50 border border-stone-300 text-sm text-stone-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-md bg-white hover:bg-cream-dark border border-cream-dark text-sm text-ink-muted transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -95,13 +101,13 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
             </svg>
             Print / Save PDF
           </button>
-          <button onClick={() => router.push("/")} className="text-sm text-green-700 hover:underline">
+          <button onClick={() => router.push("/")} className="text-sm text-teal-dark hover:underline">
             ← New job
           </button>
         </div>
       </div>
 
-      {/* Flags */}
+      {/* ── Flags ── */}
       {result.flags.length > 0 && (
         <div className="space-y-2">
           {result.flags.map((f, i) => (
@@ -109,10 +115,10 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
               key={i}
               className={`flex gap-3 items-start rounded-md px-4 py-3 text-sm border ${
                 f.level === "danger"
-                  ? "bg-red-50 border-red-200 text-red-700"
+                  ? "bg-coral/10 border-coral/30 text-coral-dark"
                   : f.level === "warning"
-                  ? "bg-yellow-50 border-yellow-200 text-yellow-700"
-                  : "bg-blue-50 border-blue-200 text-blue-700"
+                  ? "bg-yellow/30 border-yellow text-ink-muted"
+                  : "bg-teal/10 border-teal/30 text-teal-dark"
               }`}
             >
               <span className="font-semibold uppercase text-xs shrink-0 mt-0.5">{f.level}</span>
@@ -122,18 +128,16 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
         </div>
       )}
 
-      {/* Job ID */}
-      <div className="flex items-center gap-2 text-xs text-stone-400">
+      {/* ── Job ID ── */}
+      <div className="flex items-center gap-2 text-xs text-ink-faint">
         <span className="font-semibold uppercase tracking-widest">Job ID</span>
         <span className="font-mono">{meta?.job_id ?? jobId}</span>
       </div>
 
-      {/* Receptor info — fetches RCSB live */}
       {result.inputs?.receptor_name && (
         <ReceptorInfoPanel receptorName={result.inputs.receptor_name} />
       )}
 
-      {/* Ligand info — fetches PubChem live */}
       {result.inputs?.smiles && (
         <LigandInfoPanel
           smiles={result.inputs.smiles}
@@ -141,25 +145,22 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
         />
       )}
 
-      {/* RMSD validation panel */}
       {result.binding.rmsd?.available && (
         <RmsdPanel rmsd={result.binding.rmsd} />
       )}
 
-      {/* Binding affinity card */}
       <BindingAffinityCard binding={result.binding} />
 
-      {/* 3D complex viewer */}
       {result.binding.docked_complex_url ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-stone-700 uppercase tracking-widest">
+            <h2 className="text-sm font-semibold text-ink uppercase tracking-widest">
               Docked Complex
             </h2>
             <a
               href={result.binding.docked_complex_url}
               download="complex.pdb"
-              className="text-xs text-green-700 hover:text-green-600 underline"
+              className="text-xs text-teal-dark hover:text-teal underline"
             >
               Download PDB
             </a>
@@ -170,15 +171,15 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
           />
         </div>
       ) : (
-        <div className="rounded-md bg-stone-50 border border-stone-200 px-4 py-6 text-center text-xs text-stone-400">
+        <div className="rounded-md bg-cream-dark/30 border border-cream-dark px-4 py-6 text-center text-xs text-ink-faint">
           3D viewer unavailable — S3 bucket not configured or upload failed.
         </div>
       )}
 
-      {/* Citations */}
-      <div className="border-t border-stone-200 pt-6 space-y-2">
-        <p className="text-xs font-semibold text-stone-500 uppercase tracking-widest">References</p>
-        <ol className="list-decimal list-inside space-y-1.5 text-xs text-stone-500 leading-relaxed">
+      {/* ── Citations ── */}
+      <div className="border-t border-cream-dark pt-6 space-y-2">
+        <p className="text-xs font-semibold text-ink-muted uppercase tracking-widest">References</p>
+        <ol className="list-decimal list-inside space-y-1.5 text-xs text-ink-faint leading-relaxed">
           <li>
             Eberhardt, J., Santos-Martins, D., Tillack, A. F., &amp; Forli, S. (2021).{" "}
             <span className="italic">AutoDock Vina 1.2.0: New Docking Methods, Expanded Force Field, and Python Bindings.</span>{" "}

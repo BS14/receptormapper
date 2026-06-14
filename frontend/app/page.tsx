@@ -14,11 +14,11 @@ const VALIDATED_PAIRS = [
 ] as const;
 
 const LIMITATIONS = [
-  { label: "Nuclear hormone receptors",  examples: "ER, AR, MR, GR, PR",   reason: "Require flexible receptor — Vina rigid underestimates by 2–3 kcal/mol" },
-  { label: "Metalloprotease active sites", examples: "MMP, ADAM, ACE",     reason: "Zn²⁺/Fe coordination ignored by Vina scoring function" },
-  { label: "GPCRs",                       examples: "β2-AR, D2, CXCR4",    reason: "Transmembrane binding pocket poorly sampled by rigid docking" },
-  { label: "Very large ligands",          examples: "MW > 600 Da",          reason: "Too many rotatable bonds → exhaustiveness 16 insufficient" },
-  { label: "Apo structures",             examples: "No HETATM in PDB",     reason: "Falls back to fpocket — box center may not match binding site" },
+  { label: "Nuclear hormone receptors",    examples: "ER, AR, MR, GR, PR",   reason: "Require flexible receptor — Vina rigid underestimates by 2–3 kcal/mol" },
+  { label: "Metalloprotease active sites", examples: "MMP, ADAM, ACE",        reason: "Zn²⁺/Fe coordination ignored by Vina scoring function" },
+  { label: "GPCRs",                        examples: "β2-AR, D2, CXCR4",      reason: "Transmembrane binding pocket poorly sampled by rigid docking" },
+  { label: "Very large ligands",           examples: "MW > 600 Da",            reason: "Too many rotatable bonds → exhaustiveness 16 insufficient" },
+  { label: "Apo structures",              examples: "No HETATM in PDB",       reason: "Falls back to fpocket — box center may not match binding site" },
 ];
 
 function timeAgo(unixSecs: number): string {
@@ -38,19 +38,12 @@ interface RecentJob {
 export default function HomePage() {
   const router = useRouter();
 
-  // File state
   const [receptorFile, setReceptorFile] = useState<File | null>(null);
   const [ligandFile, setLigandFile] = useState<File | null>(null);
-
-  // RCSB fetch state
   const [pdbId, setPdbId] = useState("");
   const [fetchingReceptor, setFetchingReceptor] = useState(false);
-
-  // PubChem fetch state
   const [compoundQuery, setCompoundQuery] = useState("");
   const [fetchingLigand, setFetchingLigand] = useState(false);
-
-  // Form state
   const [jobName, setJobName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +56,6 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
-  // ── RCSB fetch ──────────────────────────────────────────────────────────────
   async function fetchFromRCSB() {
     const id = pdbId.trim().toUpperCase();
     if (!id) return;
@@ -81,7 +73,6 @@ export default function HomePage() {
     }
   }
 
-  // ── PubChem fetch ───────────────────────────────────────────────────────────
   async function fetchFromPubChem() {
     const q = compoundQuery.trim();
     if (!q) return;
@@ -104,7 +95,6 @@ export default function HomePage() {
     }
   }
 
-  // ── Load validated pair ─────────────────────────────────────────────────────
   async function loadPair(pdb: string, compound: string) {
     setPdbId(pdb);
     setCompoundQuery(compound);
@@ -125,7 +115,6 @@ export default function HomePage() {
     }
   }
 
-  // ── Submit ──────────────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!receptorFile || !ligandFile) return;
@@ -136,14 +125,9 @@ export default function HomePage() {
       fd.append("receptor_pdb", receptorFile);
       fd.append("ligand_file", ligandFile);
       if (jobName) fd.append("job_name", jobName);
-
       const res = await fetch("/api/predict", { method: "POST", body: fd });
       const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.detail ?? data.error ?? "Submission failed");
-        return;
-      }
+      if (!res.ok) { setError(data.detail ?? data.error ?? "Submission failed"); return; }
       router.push(`/results/${data.job_id}`);
     } catch {
       setError("Network error — is the API server running?");
@@ -159,8 +143,13 @@ export default function HomePage() {
         {/* ── Submission form ── */}
         <div className="lg:col-span-2 space-y-8">
           <div>
-            <h1 className="text-2xl font-bold text-stone-800" style={{ fontFamily: "var(--font-audiowide)" }}>Molecular Docking</h1>
-            <p className="mt-1 text-sm text-stone-500">
+            <h1
+              className="text-2xl font-bold text-ink"
+              style={{ fontFamily: "var(--font-audiowide)" }}
+            >
+              Molecular Docking
+            </h1>
+            <p className="mt-1 text-sm text-ink-muted leading-relaxed">
               Upload a receptor PDB and ligand SDF/mol2 file to run AutoDock Vina
               and visualise the docked complex in 3D.
             </p>
@@ -170,11 +159,9 @@ export default function HomePage() {
 
             {/* ── Receptor ── */}
             <div className="space-y-3">
-              <label className="block text-sm font-semibold text-stone-700">
+              <label className="block text-sm font-semibold text-ink">
                 Receptor (PDB)
               </label>
-
-              {/* RCSB fetch */}
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -182,21 +169,18 @@ export default function HomePage() {
                   onChange={(e) => setPdbId(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), fetchFromRCSB())}
                   placeholder="PDB ID — e.g. 1IEP, 2HYY, 1EQG"
-                  className="flex-1 rounded-md bg-white border border-stone-300 px-3 py-2 text-sm text-stone-800 font-mono placeholder-stone-400 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                  className="flex-1 rounded-md bg-white border border-cream-dark px-3 py-2 text-sm text-ink font-mono placeholder-ink-faint focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal"
                 />
                 <button
                   type="button"
                   onClick={fetchFromRCSB}
                   disabled={!pdbId.trim() || fetchingReceptor}
-                  className="px-4 py-2 rounded-md bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-white whitespace-nowrap transition-colors"
+                  className="px-4 py-2 rounded-md bg-teal hover:bg-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-ink whitespace-nowrap transition-colors"
                 >
                   {fetchingReceptor ? "Fetching…" : "Fetch from RCSB"}
                 </button>
               </div>
-
-              <p className="text-xs text-stone-400 -mt-1">
-                Or upload a PDB file directly:
-              </p>
+              <p className="text-xs text-ink-faint -mt-1">Or upload a PDB file directly:</p>
               <FileDropzone
                 label="Receptor PDB"
                 accept=".pdb"
@@ -208,11 +192,9 @@ export default function HomePage() {
 
             {/* ── Ligand ── */}
             <div className="space-y-3">
-              <label className="block text-sm font-semibold text-stone-700">
+              <label className="block text-sm font-semibold text-ink">
                 Ligand (SDF / mol2)
               </label>
-
-              {/* PubChem fetch */}
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -220,21 +202,18 @@ export default function HomePage() {
                   onChange={(e) => setCompoundQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), fetchFromPubChem())}
                   placeholder="Compound name or CID — e.g. Imatinib, 5291, Erlotinib"
-                  className="flex-1 rounded-md bg-white border border-stone-300 px-3 py-2 text-sm text-stone-800 font-mono placeholder-stone-400 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                  className="flex-1 rounded-md bg-white border border-cream-dark px-3 py-2 text-sm text-ink font-mono placeholder-ink-faint focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal"
                 />
                 <button
                   type="button"
                   onClick={fetchFromPubChem}
                   disabled={!compoundQuery.trim() || fetchingLigand}
-                  className="px-4 py-2 rounded-md bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-white whitespace-nowrap transition-colors"
+                  className="px-4 py-2 rounded-md bg-teal hover:bg-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-ink whitespace-nowrap transition-colors"
                 >
                   {fetchingLigand ? "Fetching…" : "Fetch from PubChem"}
                 </button>
               </div>
-
-              <p className="text-xs text-stone-400 -mt-1">
-                Or upload an SDF / mol2 file directly:
-              </p>
+              <p className="text-xs text-ink-faint -mt-1">Or upload an SDF / mol2 file directly:</p>
               <FileDropzone
                 label="Ligand (SDF / mol2)"
                 accept=".sdf,.mol2"
@@ -246,20 +225,20 @@ export default function HomePage() {
 
             {/* ── Job name ── */}
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-stone-700">
-                Job name <span className="text-stone-400 font-normal">(optional)</span>
+              <label className="block text-sm font-medium text-ink">
+                Job name <span className="text-ink-faint font-normal">(optional)</span>
               </label>
               <input
                 type="text"
                 value={jobName}
                 onChange={(e) => setJobName(e.target.value)}
                 placeholder="e.g. Imatinib / ABL1 screen"
-                className="w-full rounded-md bg-white border border-stone-300 px-3 py-2 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                className="w-full rounded-md bg-white border border-cream-dark px-3 py-2 text-sm text-ink placeholder-ink-faint focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal"
               />
             </div>
 
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+              <p className="text-sm text-coral-dark bg-coral/10 border border-coral/30 rounded px-3 py-2">
                 {error}
               </p>
             )}
@@ -267,38 +246,38 @@ export default function HomePage() {
             <button
               type="submit"
               disabled={loading || !receptorFile || !ligandFile}
-              className="w-full py-2.5 rounded-md bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-white transition-colors"
+              className="w-full py-2.5 rounded-md bg-coral hover:bg-coral-dark disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-white transition-colors"
             >
               {loading ? "Submitting…" : "Run Docking"}
             </button>
           </form>
 
           {/* ── System limitations ── */}
-          <div className="pt-6 border-t border-stone-200 space-y-2">
-            <p className="text-xs font-semibold text-stone-700 uppercase tracking-widest">System Limitations</p>
-            <p className="text-[10px] text-stone-500 leading-relaxed">
+          <div className="pt-6 border-t border-cream-dark space-y-2">
+            <p className="text-xs font-semibold text-ink uppercase tracking-widest">System Limitations</p>
+            <p className="text-[10px] text-ink-muted leading-relaxed">
               Uses rigid receptor (AutoDock Vina). Results for flexible binding sites may underestimate affinity by 2–3 kcal/mol.
             </p>
             <div className="space-y-1.5">
               {LIMITATIONS.map((lim) => (
-                <div key={lim.label} className="rounded border border-amber-100 bg-amber-50 px-2.5 py-2">
-                  <p className="text-[10px] font-semibold text-amber-800">{lim.label}</p>
-                  <p className="text-[10px] text-amber-700 italic">{lim.examples}</p>
-                  <p className="text-[10px] text-stone-500 leading-relaxed mt-0.5">{lim.reason}</p>
+                <div key={lim.label} className="rounded border border-yellow/60 bg-yellow/20 px-2.5 py-2">
+                  <p className="text-[10px] font-semibold text-ink">{lim.label}</p>
+                  <p className="text-[10px] text-ink-muted italic">{lim.examples}</p>
+                  <p className="text-[10px] text-ink-faint leading-relaxed mt-0.5">{lim.reason}</p>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* ── Recent docking jobs sidebar ── */}
+        {/* ── Sidebar ── */}
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-stone-700 uppercase tracking-widest">
+          <h2 className="text-sm font-semibold text-ink uppercase tracking-widest">
             Recent Docking Jobs
           </h2>
 
           {recentJobs.length === 0 ? (
-            <p className="text-xs text-stone-400">
+            <p className="text-xs text-ink-faint">
               No jobs yet. Results appear here after completion.
             </p>
           ) : (
@@ -307,12 +286,12 @@ export default function HomePage() {
                 <li key={job.job_id}>
                   <button
                     onClick={() => router.push(`/results/${job.job_id}`)}
-                    className="w-full text-left rounded-md border border-stone-200 bg-white hover:bg-stone-50 px-3 py-2.5 transition-colors"
+                    className="w-full text-left rounded-md border border-cream-dark bg-white hover:bg-teal/10 hover:border-teal px-3 py-2.5 transition-colors"
                   >
-                    <p className="text-sm font-medium text-stone-800 truncate">
+                    <p className="text-sm font-medium text-ink truncate">
                       {job.job_name || job.job_id.slice(0, 8)}
                     </p>
-                    <p className="text-xs text-stone-500 mt-0.5">
+                    <p className="text-xs text-ink-faint mt-0.5">
                       {timeAgo(job.created_at)}
                     </p>
                   </button>
@@ -321,15 +300,15 @@ export default function HomePage() {
             </ul>
           )}
 
-          <p className="text-xs text-stone-400">Results cached for 24 hours.</p>
+          <p className="text-xs text-ink-faint">Results cached for 24 hours.</p>
 
-          <div className="pt-4 border-t border-stone-100 space-y-1.5">
-            <p className="text-xs font-medium text-stone-500">Quick links</p>
+          <div className="pt-4 border-t border-cream-dark space-y-1.5">
+            <p className="text-xs font-medium text-ink-muted">Quick links</p>
             <a
               href="https://www.rcsb.org"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs text-green-700 hover:text-green-600"
+              className="flex items-center gap-1.5 text-xs text-teal-dark hover:text-teal"
             >
               RCSB Protein Data Bank ↗
             </a>
@@ -337,44 +316,43 @@ export default function HomePage() {
               href="https://pubchem.ncbi.nlm.nih.gov"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs text-green-700 hover:text-green-600"
+              className="flex items-center gap-1.5 text-xs text-teal-dark hover:text-teal"
             >
               PubChem Compound Database ↗
             </a>
           </div>
 
           {/* ── Validated test pairs ── */}
-          <div className="pt-4 border-t border-stone-100 space-y-2">
+          <div className="pt-4 border-t border-cream-dark space-y-2">
             <div>
-              <p className="text-xs font-semibold text-stone-700 uppercase tracking-widest">Validated Test Pairs</p>
-              <p className="text-[10px] text-stone-400 mt-0.5">Click to auto-fill and fetch</p>
+              <p className="text-xs font-semibold text-ink uppercase tracking-widest">Validated Test Pairs</p>
+              <p className="text-[10px] text-ink-faint mt-0.5">Click to auto-fill and fetch</p>
             </div>
             {VALIDATED_PAIRS.map((pair) => (
               <button
                 key={pair.pdb}
                 type="button"
                 onClick={() => loadPair(pair.pdb, pair.compound)}
-                className="w-full text-left rounded-md border border-stone-200 bg-white hover:bg-green-50 hover:border-green-300 px-2.5 py-2 transition-colors group"
+                className="w-full text-left rounded-md border border-cream-dark bg-white hover:bg-teal/10 hover:border-teal px-2.5 py-2 transition-colors group"
               >
                 <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-xs font-mono font-bold text-stone-800 group-hover:text-green-800">
+                  <span className="text-xs font-mono font-bold text-ink group-hover:text-teal-dark">
                     {pair.pdb}
                   </span>
-                  <span className="text-[10px] text-stone-400">IC50 {pair.expIC50}</span>
+                  <span className="text-[10px] text-ink-faint">IC50 {pair.expIC50}</span>
                 </div>
-                <div className="text-[10px] text-stone-600 truncate">
+                <div className="text-[10px] text-ink-muted truncate">
                   {pair.compound} · {pair.target}
                 </div>
-                <div className="text-[10px] text-green-700 mt-0.5">{pair.note}</div>
+                <div className="text-[10px] text-teal-dark mt-0.5">{pair.note}</div>
               </button>
             ))}
-            <p className="text-[10px] text-stone-400 leading-relaxed">
+            <p className="text-[10px] text-ink-faint leading-relaxed">
               Expected ΔG: −5 to −7 weak · −7 to −9 moderate · −9 to −12 strong · below −12 suspicious
             </p>
           </div>
 
         </div>
-
       </div>
     </div>
   );

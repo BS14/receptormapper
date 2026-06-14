@@ -4,11 +4,11 @@ import type { RmsdResult } from "@/lib/types";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-1.5 border-b border-stone-100 last:border-0">
-      <span className="text-xs font-semibold text-stone-400 uppercase tracking-widest shrink-0 w-36">
+    <div className="flex items-start justify-between gap-4 py-1.5 border-b border-cream-dark last:border-0">
+      <span className="text-xs font-semibold text-ink-faint uppercase tracking-widest shrink-0 w-36">
         {label}
       </span>
-      <span className="text-sm text-stone-700 text-right">{value}</span>
+      <span className="text-sm text-ink-muted text-right">{value}</span>
     </div>
   );
 }
@@ -18,8 +18,8 @@ function Badge({ ok, label }: { ok: boolean; label: string }) {
     <span
       className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${
         ok
-          ? "bg-green-100 text-green-700"
-          : "bg-yellow-100 text-yellow-700"
+          ? "bg-teal/20 text-teal-dark"
+          : "bg-yellow/40 text-ink-muted"
       }`}
     >
       {label}
@@ -30,17 +30,16 @@ function Badge({ ok, label }: { ok: boolean; label: string }) {
 export default function RmsdPanel({ rmsd }: { rmsd: RmsdResult }) {
   if (!rmsd.available) return null;
 
-  const isSelfDock = rmsd.mode === "self_docking";
-  const pocketOk = rmsd.pocket_distance_A != null && rmsd.pocket_distance_A < 4.0;
+  const isSelfDock  = rmsd.mode === "self_docking";
+  const pocketOk    = rmsd.pocket_distance_A != null && rmsd.pocket_distance_A < 4.0;
 
   return (
-    <div className="rounded-md border border-stone-200 bg-stone-50 px-5 py-4 space-y-1">
-      {/* Header */}
+    <div className="rounded-md border border-cream-dark bg-white px-5 py-4 space-y-1">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-semibold text-stone-500 uppercase tracking-widest">
+        <p className="text-xs font-semibold text-ink-muted uppercase tracking-widest">
           RMSD Validation
         </p>
-        <span className="text-xs text-stone-400 italic">
+        <span className="text-xs text-ink-faint italic">
           Schrödinger Glide-style pose assessment
         </span>
       </div>
@@ -51,7 +50,7 @@ export default function RmsdPanel({ rmsd }: { rmsd: RmsdResult }) {
           <span>
             <span className="font-mono font-semibold">{rmsd.native_resname}</span>
             {rmsd.native_heavy_count != null && (
-              <span className="text-stone-400 ml-1">· {rmsd.native_heavy_count} heavy atoms</span>
+              <span className="text-ink-faint ml-1">· {rmsd.native_heavy_count} heavy atoms</span>
             )}
           </span>
         }
@@ -67,7 +66,7 @@ export default function RmsdPanel({ rmsd }: { rmsd: RmsdResult }) {
               <Badge ok={false} label="Cross-docking" />
             )}
             {rmsd.tanimoto != null && (
-              <span className="text-stone-400 text-xs">
+              <span className="text-ink-faint text-xs">
                 Tanimoto {rmsd.tanimoto.toFixed(2)}
               </span>
             )}
@@ -107,7 +106,7 @@ export default function RmsdPanel({ rmsd }: { rmsd: RmsdResult }) {
                 />
               </span>
             ) : (
-              <span className="text-stone-400">— atom count mismatch</span>
+              <span className="text-ink-faint">— atom count mismatch</span>
             )
           }
         />
@@ -116,12 +115,11 @@ export default function RmsdPanel({ rmsd }: { rmsd: RmsdResult }) {
       {!isSelfDock && (
         <Row
           label="Ligand RMSD"
-          value={<span className="text-stone-400">— different ligand (N/A)</span>}
+          value={<span className="text-ink-faint">— different ligand (N/A)</span>}
         />
       )}
 
-      {/* Legend */}
-      <p className="text-xs text-stone-400 pt-1">
+      <p className="text-xs text-ink-faint pt-1">
         Orange = crystal native ligand &nbsp;·&nbsp; Green = docked pose
       </p>
     </div>

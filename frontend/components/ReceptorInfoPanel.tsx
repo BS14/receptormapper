@@ -15,8 +15,8 @@ interface RcsbData {
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <p className="text-xs font-semibold text-stone-400 uppercase tracking-widest mb-0.5">{label}</p>
-      <p className="text-sm text-stone-700">{value}</p>
+      <p className="text-xs font-semibold text-ink-faint uppercase tracking-widest mb-0.5">{label}</p>
+      <p className="text-sm text-ink-muted">{value}</p>
     </div>
   );
 }
@@ -49,17 +49,16 @@ export default function ReceptorInfoPanel({ receptorName }: { receptorName: stri
   }, [pdbId]);
 
   return (
-    <div className="rounded-md border border-stone-200 bg-stone-50 px-5 py-4 space-y-3">
-      {/* Header row */}
+    <div className="rounded-md border border-cream-dark bg-white px-5 py-4 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-stone-500 uppercase tracking-widest">Receptor</p>
+        <p className="text-xs font-semibold text-ink-muted uppercase tracking-widest">Receptor</p>
         <div className="flex items-center gap-3">
           {pdbId && (
             <a
               href={`https://www.rcsb.org/structure/${pdbId}`}
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-green-700 hover:underline"
+              className="text-xs text-teal-dark hover:underline"
             >
               View on RCSB ↗
             </a>
@@ -67,7 +66,7 @@ export default function ReceptorInfoPanel({ receptorName }: { receptorName: stri
           {data && (
             <button
               onClick={() => setExpanded((e) => !e)}
-              className="text-xs text-stone-400 hover:text-stone-600"
+              className="text-xs text-ink-faint hover:text-ink-muted"
             >
               {expanded ? "Show less ↑" : "Show more ↓"}
             </button>
@@ -75,11 +74,10 @@ export default function ReceptorInfoPanel({ receptorName }: { receptorName: stri
         </div>
       </div>
 
-      {/* Summary row — always visible */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
         <InfoRow label="PDB ID" value={pdbId ?? receptorName} />
         {loading && (
-          <p className="text-xs text-stone-400 col-span-3">Loading RCSB data…</p>
+          <p className="text-xs text-ink-faint col-span-3">Loading RCSB data…</p>
         )}
         {data && (
           <>
@@ -92,9 +90,8 @@ export default function ReceptorInfoPanel({ receptorName }: { receptorName: stri
         )}
       </div>
 
-      {/* Expanded details */}
       {expanded && data && (
-        <div className="border-t border-stone-200 pt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+        <div className="border-t border-cream-dark pt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
           {data.title && (
             <div className="col-span-2 sm:col-span-3">
               <InfoRow label="Title" value={data.title} />
