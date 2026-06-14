@@ -104,6 +104,43 @@ def _clean_receptor_pdb(pdb_path: str, workdir: str) -> str:
     return out
 
 
+def _trim_receptor_to_box(pdb_path: str, box: dict, workdir: str, padding: float = 8.0) -> str:
+    """Keep only residues with any atom within (half-box + padding) of box center."""
+    import math
+    cx, cy, cz = box["center_x"], box["center_y"], box["center_z"]
+    rx = box["size_x"] / 2 + padding
+    ry = box["size_y"] / 2 + padding
+    rz = box["size_z"] / 2 + padding
+
+    # Collect residue keys that have at least one atom inside the cutoff
+    keep_residues: set[tuple] = set()
+    with open(pdb_path) as f:
+        for line in f:
+            if not line.startswith(("ATOM", "HETATM")):
+                continue
+            try:
+                x, y, z = float(line[30:38]), float(line[38:46]), float(line[46:54])
+            except ValueError:
+                continue
+            if abs(x - cx) <= rx and abs(y - cy) <= ry and abs(z - cz) <= rz:
+                chain = line[21]
+                resseq = line[22:26].strip()
+                keep_residues.add((chain, resseq))
+
+    out = os.path.join(workdir, "receptor_site.pdb")
+    with open(pdb_path) as fin, open(out, "w") as fout:
+        for line in fin:
+            if line.startswith(("ATOM", "HETATM")):
+                chain = line[21]
+                resseq = line[22:26].strip()
+                if (chain, resseq) not in keep_residues:
+                    continue
+            fout.write(line)
+
+    logger.info("Receptor trimmed to %d residues near binding site", len(keep_residues))
+    return out
+
+
 def _pdb_to_pdbqt(pdb_path: str, workdir: str) -> str:
     """receptor.pdb → receptor.pdbqt via obabel."""
     out = os.path.join(workdir, "receptor.pdbqt")
@@ -517,8 +554,9 @@ def predict(
 
             original_pdb = receptor_pdb  # keep pre-cleaning path for RMSD + native extraction
             receptor_pdb = _clean_receptor_pdb(receptor_pdb, wd)
-            receptor_pdbqt = _pdb_to_pdbqt(receptor_pdb, wd)
             box = _native_ligand_box(original_pdb) or _fpocket_box(receptor_pdb, wd)
+            receptor_site_pdb = _trim_receptor_to_box(receptor_pdb, box, wd)
+            receptor_pdbqt = _pdb_to_pdbqt(receptor_site_pdb, wd)
             all_dg, docked_pdbqt = _run_vina(receptor_pdbqt, ligand_pdbqt, box, wd)
             delta_g = all_dg[0]
 
