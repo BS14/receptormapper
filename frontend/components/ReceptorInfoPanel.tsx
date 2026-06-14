@@ -58,9 +58,9 @@ export default function ReceptorInfoPanel({ receptorName }: { receptorName: stri
               href={`https://www.rcsb.org/structure/${pdbId}`}
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-teal-dark hover:underline"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal/20 hover:bg-teal/40 border border-teal/40 text-teal-dark transition-colors"
             >
-              View on RCSB ↗
+              RCSB ↗
             </a>
           )}
           {data && (

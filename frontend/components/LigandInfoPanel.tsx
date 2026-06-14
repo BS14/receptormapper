@@ -98,9 +98,9 @@ export default function LigandInfoPanel({
               href={`https://pubchem.ncbi.nlm.nih.gov/compound/${data.cid}`}
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-teal-dark hover:underline"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-coral/15 hover:bg-coral/30 border border-coral/30 text-coral-dark transition-colors"
             >
-              View on PubChem ↗
+              PubChem ↗
             </a>
           )}
           {(data || notFound) && (

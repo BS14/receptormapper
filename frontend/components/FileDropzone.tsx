@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 interface FileDropzoneProps {
   label: string;
@@ -12,9 +12,11 @@ interface FileDropzoneProps {
 
 export default function FileDropzone({ label, accept, file, onChange, hint }: FileDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
+    setDragging(false);
     const dropped = e.dataTransfer.files[0];
     if (dropped) onChange(dropped);
   }
@@ -22,9 +24,15 @@ export default function FileDropzone({ label, accept, file, onChange, hint }: Fi
   return (
     <div
       onDrop={handleDrop}
-      onDragOver={(e) => e.preventDefault()}
+      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+      onDragEnter={() => setDragging(true)}
+      onDragLeave={() => setDragging(false)}
       onClick={() => inputRef.current?.click()}
-      className="relative cursor-pointer rounded-md border-2 border-dashed border-cream-dark hover:border-teal bg-cream/60 hover:bg-teal/5 transition-colors px-4 py-3"
+      className={`relative cursor-pointer rounded-md border-2 border-dashed transition-all px-4 py-3 ${
+        dragging
+          ? "border-coral bg-coral/10 scale-[1.01] shadow-md"
+          : "border-cream-dark hover:border-teal bg-cream/60 hover:bg-teal/5"
+      }`}
     >
       <input
         ref={inputRef}
@@ -46,8 +54,8 @@ export default function FileDropzone({ label, accept, file, onChange, hint }: Fi
           </button>
         </div>
       ) : (
-        <p className="mt-0.5 text-xs text-ink-faint">
-          {hint ?? `Drop ${accept} here or click to browse`}
+        <p className={`mt-0.5 text-xs font-medium transition-colors ${dragging ? "text-coral-dark" : "text-ink-faint"}`}>
+          {dragging ? "Release to upload" : (hint ?? `Drop ${accept} here or click to browse`)}
         </p>
       )}
     </div>

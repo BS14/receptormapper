@@ -175,9 +175,10 @@ export default function HomePage() {
                   type="button"
                   onClick={fetchFromRCSB}
                   disabled={!pdbId.trim() || fetchingReceptor}
-                  className="px-4 py-2 rounded-md bg-teal hover:bg-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-ink whitespace-nowrap transition-colors"
+                  className="px-4 py-2 rounded-md bg-teal hover:bg-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-ink whitespace-nowrap transition-colors flex items-center gap-1.5"
                 >
-                  {fetchingReceptor ? "Fetching…" : "Fetch from RCSB"}
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-ink/40" />
+                  {fetchingReceptor ? "Fetching…" : "Fetch RCSB"}
                 </button>
               </div>
               <p className="text-xs text-ink-faint -mt-1">Or upload a PDB file directly:</p>
@@ -208,9 +209,10 @@ export default function HomePage() {
                   type="button"
                   onClick={fetchFromPubChem}
                   disabled={!compoundQuery.trim() || fetchingLigand}
-                  className="px-4 py-2 rounded-md bg-teal hover:bg-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-ink whitespace-nowrap transition-colors"
+                  className="px-4 py-2 rounded-md bg-coral hover:bg-coral-dark disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold text-white whitespace-nowrap transition-colors flex items-center gap-1.5"
                 >
-                  {fetchingLigand ? "Fetching…" : "Fetch from PubChem"}
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-white/50" />
+                  {fetchingLigand ? "Fetching…" : "Fetch PubChem"}
                 </button>
               </div>
               <p className="text-xs text-ink-faint -mt-1">Or upload an SDF / mol2 file directly:</p>
@@ -302,23 +304,25 @@ export default function HomePage() {
 
           <p className="text-xs text-ink-faint">Results cached for 24 hours.</p>
 
-          <div className="pt-4 border-t border-cream-dark space-y-1.5">
-            <p className="text-xs font-medium text-ink-muted">Quick links</p>
+          <div className="pt-4 border-t border-cream-dark space-y-2">
+            <p className="text-xs font-medium text-ink-muted uppercase tracking-widest">Quick links</p>
             <a
               href="https://www.rcsb.org"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs text-teal-dark hover:text-teal"
+              className="flex items-center justify-between gap-2 rounded-md bg-teal/20 hover:bg-teal/40 border border-teal/40 px-3 py-1.5 transition-colors"
             >
-              RCSB Protein Data Bank ↗
+              <span className="text-xs font-semibold text-teal-dark">RCSB Protein Data Bank</span>
+              <span className="text-xs text-teal-dark">↗</span>
             </a>
             <a
               href="https://pubchem.ncbi.nlm.nih.gov"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs text-teal-dark hover:text-teal"
+              className="flex items-center justify-between gap-2 rounded-md bg-coral/15 hover:bg-coral/30 border border-coral/30 px-3 py-1.5 transition-colors"
             >
-              PubChem Compound Database ↗
+              <span className="text-xs font-semibold text-coral-dark">PubChem Compound Database</span>
+              <span className="text-xs text-coral-dark">↗</span>
             </a>
           </div>
 
