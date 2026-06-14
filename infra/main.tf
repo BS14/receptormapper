@@ -86,6 +86,7 @@ module "ec2" {
   user_data = templatefile("${path.module}/user_data.sh.tpl", {
     aws_region     = var.aws_region
     dynamodb_table = var.dynamodb_table
+    s3_bucket      = var.s3_bucket
   })
   user_data_replace_on_change = true
 

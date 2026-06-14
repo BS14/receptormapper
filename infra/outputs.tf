@@ -22,3 +22,13 @@ output "swagger_ui" {
   description = "FastAPI interactive docs"
   value       = "https://${aws_eip.api.public_ip}/docs"
 }
+
+output "local_dev_user" {
+  description = "IAM user for local development — generate keys with the command below"
+  value       = aws_iam_user.local_dev.name
+}
+
+output "local_dev_key_command" {
+  description = "Run this after apply to create an access key for local dev"
+  value       = "aws iam create-access-key --user-name ${aws_iam_user.local_dev.name} --region ${var.aws_region}"
+}

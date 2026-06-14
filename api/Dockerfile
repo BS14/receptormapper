@@ -2,6 +2,25 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# System deps: build tools, AutoDock Vina, Open Babel, fpocket (built from source)
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+    autodock-vina \
+    openbabel \
+    libopenbabel-dev \
+    git \
+    cmake \
+    build-essential \
+    libnetcdf-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# fpocket not in apt — build from source (suppress GCC 14 incompatible-pointer-types error)
+RUN git clone --depth 1 https://github.com/Discngine/fpocket.git /tmp/fpocket \
+    && cd /tmp/fpocket \
+    && sed -i 's/-Wstrict-prototypes/-Wstrict-prototypes -Wno-incompatible-pointer-types -Wno-error/g' makefile \
+    && make \
+    && make install \
+    && rm -rf /tmp/fpocket
+
 RUN pip install --no-cache-dir --prefer-binary \
     boto3 \
     "numpy>=1.24.0,<2.0" \
@@ -10,17 +29,9 @@ RUN pip install --no-cache-dir --prefer-binary \
 
 RUN pip install --no-cache-dir --prefer-binary rdkit-pypi
 
-# CPU-only PyTorch — avoids the 2 GB CUDA download
-RUN pip install --no-cache-dir --prefer-binary \
-    "torch>=2.0.0" \
-    "torchvision>=0.15.0" \
-    --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir meeko biopython requests
 
-RUN pip install --no-cache-dir --prefer-binary DeepPurpose
-
-RUN pip install --no-cache-dir PyTDC
-
-RUN pip install --no-cache-dir fastapi "uvicorn[standard]"
+RUN pip install --no-cache-dir fastapi "uvicorn[standard]" python-multipart pytest httpx
 
 COPY src/ /app/src/
 COPY models/ /app/models/

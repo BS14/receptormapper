@@ -217,10 +217,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Local dev env
-.env.local
-.env.prod
-.env.frontend.local
+# All env files — credentials must never be committed
+# Covers: .env, .env.local, .env.local.example, api/.env, frontend/.env.local, etc.
+**/.env*
 
 # Terraform
 infra/.terraform/

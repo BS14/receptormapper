@@ -1,26 +1,13 @@
 #!/bin/sh
 set -e
 
-# Local dev only: wait for DynamoDB, create tables, seed cache
+# create_tables.py is idempotent (catches ResourceInUseException).
+# Runs against real AWS DynamoDB when AWS_ENDPOINT_URL is unset,
+# or against a local container when it is set.
+# Seed demo jobs only in local dev mode (when pointing at a local container)
 if [ -n "$AWS_ENDPOINT_URL" ]; then
-  echo "Waiting for DynamoDB at $AWS_ENDPOINT_URL..."
-  until python -c "
-import boto3, os
-boto3.client('dynamodb',
-    endpoint_url=os.environ['AWS_ENDPOINT_URL'],
-    region_name=os.environ.get('AWS_REGION','us-east-1'),
-    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID','fake'),
-    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY','fake')
-).list_tables()
-" 2>/dev/null; do
-    echo "  DynamoDB not ready — retrying in 2s..."
-    sleep 2
-  done
-
-  echo "DynamoDB ready. Creating tables..."
+  echo "Local mode — creating tables and seeding cache..."
   python /app/scripts/create_tables.py
-
-  echo "Seeding cache..."
   python /app/scripts/seed_cache.py
 fi
 

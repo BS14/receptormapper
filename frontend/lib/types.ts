@@ -1,8 +1,31 @@
-export interface SubmissionMeta {
-  smiles: string;
-  target: string;
-  model: string;
-  cell_panel: string;
+export interface NativeDocking {
+  delta_g: number;
+  pIC50: number;
+  ic50_nM: number;
+  delta_delta_g: number;
+  selectivity: "stronger" | "similar" | "weaker";
+}
+
+export interface RmsdResult {
+  available: boolean;
+  native_resname?: string;
+  native_heavy_count?: number;
+  native_center?: number[];
+  docked_center?: number[];
+  pocket_distance_A?: number;
+  mode?: "self_docking" | "cross_docking";
+  tanimoto?: number;
+  ligand_rmsd_A?: number | null;
+  success?: boolean | null;
+}
+
+export interface PoseResult {
+  rank: number;
+  delta_g: number;
+  pic50: number;
+  ic50_nM: number;
+  pocket_distance_A?: number;
+  rmsd_A?: number | null;
 }
 
 export interface BindingResult {
@@ -11,38 +34,11 @@ export interface BindingResult {
   ic50_nM: number;
   confidence: number;
   strength: "strong" | "moderate" | "weak";
-}
-
-export interface OffTargetEntry {
-  name: string;
-  family: string;
-  pic50: number;
-  risk: "high" | "medium" | "low" | "unknown";
-  flag: boolean;
-}
-
-export interface CellLineEntry {
-  name: string;
-  ic50: number;
-}
-
-export interface AdmetResult {
-  mw: number;
-  logP: number;
-  hbd: number;
-  hba: number;
-  tpsa: number;
-  rotatable_bonds: number;
-  aromatic_rings: number;
-  ro5_violations: number;
-  drug_like: boolean;
-}
-
-export interface TanimotoResult {
-  max_tanimoto: number;
-  mean_top10: number;
-  adj_confidence: number;
-  extrapolation_risk: boolean;
+  docked_complex_url?: string;
+  docked_complex_key?: string;
+  rmsd?: RmsdResult;
+  native_docking?: NativeDocking | null;
+  poses?: PoseResult[];
 }
 
 export interface PredictionFlag {
@@ -53,32 +49,25 @@ export interface PredictionFlag {
 
 export interface PredictionSummary {
   total_flags: number;
-  high_risk_ots: number;
-  sensitive_lines: number;
+}
+
+export interface PredictionInputs {
+  job_id?: string;
+  receptor_name?: string;
+  ligand_name?: string;
+  smiles?: string;
 }
 
 export interface PredictionResult {
   binding: BindingResult;
-  offtarget: OffTargetEntry[];
-  cellline: CellLineEntry[];
-  admet: AdmetResult;
-  tanimoto: TanimotoResult;
   flags: PredictionFlag[];
   summary: PredictionSummary;
+  inputs?: PredictionInputs;
+}
+
+export interface JobMeta {
+  job_name: string;
+  job_id?: string;
 }
 
 export type JobStatus = "queued" | "running" | "complete" | "failed";
-
-export interface JobRecord {
-  job_id: string;
-  job_name: string;
-  smiles: string;
-  target: string;
-  model: string;
-  status: JobStatus;
-  result?: string;
-  error?: string;
-  created_at: number;
-  completed_at?: number;
-  ttl?: number;
-}

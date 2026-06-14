@@ -2,93 +2,69 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-_HERG_HIGH_THRESHOLD = 5.5
-_CYP3A4_HIGH_THRESHOLD = 5.0
-_RO5_VIOLATION_THRESHOLD = 2
+_STRONG_BINDING_DG = -9.0   # ΔG threshold for a "very strong" potency flag
+_LOW_CONFIDENCE = 0.50
+_NONPHYSICAL_DG = -15.0    # Vina ΔG below this is non-physical (wrong pocket)
 
 
-def build(
-    binding: dict,
-    offtarget: list[dict],
-    cellline: list[dict],
-    admet: dict,
-    tanimoto: dict,
-    smiles: str,
-    target: str,
-) -> dict:
-    # Tanimoto-adjusted confidence overrides the raw model confidence
-    binding = {**binding, "confidence": tanimoto["adj_confidence"]}
-
-    flags = _generate_flags(binding, offtarget, admet, tanimoto)
-
-    high_risk_ots = sum(1 for ot in offtarget if ot["risk"] == "high")
-    sensitive_lines = sum(1 for cl in cellline if cl["ic50"] < 1.0)
-
-    return {
+def build(binding: dict, inputs: dict | None = None) -> dict:
+    flags = _generate_flags(binding)
+    result: dict = {
         "binding": binding,
-        "offtarget": offtarget,
-        "cellline": cellline,
-        "admet": admet,
-        "tanimoto": tanimoto,
         "flags": flags,
-        "summary": {
-            "total_flags": len(flags),
-            "high_risk_ots": high_risk_ots,
-            "sensitive_lines": sensitive_lines,
-        },
+        "summary": {"total_flags": len(flags)},
     }
+    if inputs:
+        result["inputs"] = inputs
+    return result
 
 
-def _generate_flags(
-    binding: dict,
-    offtarget: list[dict],
-    admet: dict,
-    tanimoto: dict,
-) -> list[dict]:
+def _generate_flags(binding: dict) -> list[dict]:
     flags: list[dict] = []
+    delta_g = binding.get("delta_g", 0.0)
 
-    ot_by_name = {ot["name"]: ot for ot in offtarget}
-
-    herg = ot_by_name.get("hERG")
-    if herg and herg["pic50"] >= _HERG_HIGH_THRESHOLD:
+    if delta_g <= _STRONG_BINDING_DG:
         flags.append({
-            "type": "cardiac",
-            "level": "danger",
+            "type": "potency",
+            "level": "info",
             "message": (
-                f"hERG binding pIC50 {herg['pic50']:.1f} — cardiac liability risk. "
-                "Patch-clamp assay recommended."
+                f"Very strong predicted binding (ΔG {delta_g:.1f} kcal/mol). "
+                "Verify target selectivity — cross-reactivity with related proteins is likely."
             ),
         })
 
-    cyp = ot_by_name.get("CYP3A4")
-    if cyp and cyp["pic50"] >= _CYP3A4_HIGH_THRESHOLD:
-        flags.append({
-            "type": "metabolism",
-            "level": "warning",
-            "message": (
-                f"CYP3A4 inhibition pIC50 {cyp['pic50']:.1f} — "
-                "drug-drug interaction potential. In-vitro CYP inhibition assay recommended."
-            ),
-        })
-
-    if tanimoto["extrapolation_risk"]:
+    if binding.get("confidence", 1.0) < _LOW_CONFIDENCE:
         flags.append({
             "type": "reliability",
             "level": "warning",
             "message": (
-                f"Low training-set similarity (max Tanimoto {tanimoto['max_tanimoto']:.2f}). "
-                "Prediction is extrapolation — treat with caution."
+                "Docking confidence is low. "
+                "Result is exploratory — consider alternative poses or increasing exhaustiveness."
             ),
         })
 
-    if admet["ro5_violations"] >= _RO5_VIOLATION_THRESHOLD:
+    if delta_g < _NONPHYSICAL_DG:
         flags.append({
-            "type": "druglikeness",
-            "level": "info",
+            "type": "docking_quality",
+            "level": "warning",
             "message": (
-                f"Lipinski Ro5 violations: {admet['ro5_violations']}. "
-                "Poor oral bioavailability likely."
+                f"Vina ΔG {delta_g:.1f} kcal/mol is outside the physical range (−3 to −12). "
+                "The binding box may have been miscentered. pIC50 has been capped at 12.0. "
+                "Re-docking with a corrected box is recommended."
             ),
         })
+
+    rmsd_info = binding.get("rmsd", {})
+    if rmsd_info.get("mode") == "self_docking":
+        rmsd_val = rmsd_info.get("ligand_rmsd_A")
+        if rmsd_val is not None and rmsd_val > 2.0:
+            flags.append({
+                "type": "pose_quality",
+                "level": "warning",
+                "message": (
+                    f"Self-docking RMSD {rmsd_val:.2f} Å exceeds 2.0 Å threshold. "
+                    "Docked pose diverges from crystal structure — results are exploratory."
+                ),
+            })
 
     return flags
