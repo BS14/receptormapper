@@ -9,7 +9,23 @@ import LigandInfoPanel from "@/components/LigandInfoPanel";
 import RmsdPanel from "@/components/RmsdPanel";
 import type { PredictionResult, JobMeta } from "@/lib/types";
 
-const POLL_INTERVAL_MS = 2000;
+const POLL_INTERVAL_MS = 5000;
+
+// ── Shared design tokens ──────────────────────────────────────────────────────
+const T = {
+  pageBg:    "#F8F8F5",
+  cardBg:    "#EFEFEB",
+  border:    "#D8D8D2",
+  ink:       "#2c2218",
+  inkMuted:  "#6b5c48",
+  inkFaint:  "#a89880",
+  teal:      "#8BDFDD",
+  tealDark:  "#5bbfbd",
+  coral:     "#F48F68",
+  coralDark: "#d96a44",
+  yellow:    "#FFE394",
+  navy:      "rgb(0, 48, 73)",
+};
 
 export default function ResultsPage({ params }: { params: { jobId: string } }) {
   const { jobId } = params;
@@ -49,11 +65,18 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
   if (error) {
     return (
       <div className="max-w-xl mx-auto mt-20 text-center space-y-4">
-        <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded px-4 py-3">
+        <p
+          className="text-sm rounded px-4 py-3"
+          style={{ color: T.coralDark, backgroundColor: "#F48F6818", border: `1px solid #F48F6840` }}
+        >
           {error}
         </p>
-        <button onClick={() => router.push("/")} className="text-sm text-green-700 hover:underline">
-          ← Back to submission
+        <button
+          onClick={() => router.push("/")}
+          className="text-sm hover:underline"
+          style={{ color: T.tealDark }}
+        >
+          Back to submission
         </button>
       </div>
     );
@@ -63,10 +86,13 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
     return (
       <div className="max-w-xl mx-auto mt-24 text-center space-y-3">
         <div className="flex justify-center">
-          <div className="h-8 w-8 rounded-full border-2 border-green-600 border-t-transparent animate-spin" />
+          <div
+            className="h-8 w-8 rounded-full border-2 border-t-transparent animate-spin"
+            style={{ borderColor: T.teal, borderTopColor: "transparent" }}
+          />
         </div>
-        <p className="text-sm text-stone-500 capitalize">{status}…</p>
-        <p className="text-xs text-stone-400">
+        <p className="text-sm capitalize" style={{ color: T.inkMuted }}>{status}…</p>
+        <p className="text-xs" style={{ color: T.inkFaint }}>
           Running AutoDock Vina — typically 30–120 s
         </p>
       </div>
@@ -75,19 +101,28 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+
+      {/* ── Page header ── */}
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-stone-800">Docking Results</h1>
+          <h1
+            className="text-xl font-bold"
+            style={{ fontFamily: "var(--font-audiowide)", color: T.ink }}
+          >
+            Docking Results
+          </h1>
           {meta?.job_name && (
-            <p className="text-sm text-stone-500 mt-0.5">{meta.job_name}</p>
+            <p className="text-sm mt-0.5" style={{ color: T.inkMuted }}>{meta.job_name}</p>
           )}
-          <p className="text-xs text-stone-400 font-mono mt-0.5">job {meta?.job_id ?? jobId}</p>
+          <p className="text-xs font-mono mt-0.5" style={{ color: T.inkFaint }}>
+            job {meta?.job_id ?? jobId}
+          </p>
         </div>
-        <div className="no-print flex items-center gap-3">
+        <div className="no-print flex items-center gap-3 shrink-0">
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 rounded-md bg-white hover:bg-stone-50 border border-stone-300 text-sm text-stone-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-md text-sm transition-colors"
+            style={{ backgroundColor: T.cardBg, border: `1px solid ${T.border}`, color: T.inkMuted }}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -95,25 +130,30 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
             </svg>
             Print / Save PDF
           </button>
-          <button onClick={() => router.push("/")} className="text-sm text-green-700 hover:underline">
+          <button
+            onClick={() => router.push("/")}
+            className="text-sm hover:underline"
+            style={{ color: T.tealDark }}
+          >
             ← New job
           </button>
         </div>
       </div>
 
-      {/* Flags */}
+      {/* ── Flags ── */}
       {result.flags.length > 0 && (
         <div className="space-y-2">
           {result.flags.map((f, i) => (
             <div
               key={i}
-              className={`flex gap-3 items-start rounded-md px-4 py-3 text-sm border ${
+              className="flex gap-3 items-start rounded-md px-4 py-3 text-sm"
+              style={
                 f.level === "danger"
-                  ? "bg-red-50 border-red-200 text-red-700"
+                  ? { backgroundColor: "#F48F6818", border: `1px solid #F48F6840`, color: T.coralDark }
                   : f.level === "warning"
-                  ? "bg-yellow-50 border-yellow-200 text-yellow-700"
-                  : "bg-blue-50 border-blue-200 text-blue-700"
-              }`}
+                  ? { backgroundColor: "#FFE39440", border: `1px solid ${T.yellow}`, color: T.inkMuted }
+                  : { backgroundColor: "#8BDFDD18", border: `1px solid #8BDFDD40`, color: T.tealDark }
+              }
             >
               <span className="font-semibold uppercase text-xs shrink-0 mt-0.5">{f.level}</span>
               <span>{f.message}</span>
@@ -122,18 +162,16 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
         </div>
       )}
 
-      {/* Job ID */}
-      <div className="flex items-center gap-2 text-xs text-stone-400">
+      {/* ── Job ID chip ── */}
+      <div className="flex items-center gap-2 text-xs" style={{ color: T.inkFaint }}>
         <span className="font-semibold uppercase tracking-widest">Job ID</span>
         <span className="font-mono">{meta?.job_id ?? jobId}</span>
       </div>
 
-      {/* Receptor info — fetches RCSB live */}
       {result.inputs?.receptor_name && (
         <ReceptorInfoPanel receptorName={result.inputs.receptor_name} />
       )}
 
-      {/* Ligand info — fetches PubChem live */}
       {result.inputs?.smiles && (
         <LigandInfoPanel
           smiles={result.inputs.smiles}
@@ -141,25 +179,27 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
         />
       )}
 
-      {/* RMSD validation panel */}
       {result.binding.rmsd?.available && (
         <RmsdPanel rmsd={result.binding.rmsd} />
       )}
 
-      {/* Binding affinity card */}
       <BindingAffinityCard binding={result.binding} />
 
-      {/* 3D complex viewer */}
+      {/* ── 3D viewer ── */}
       {result.binding.docked_complex_url ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-stone-700 uppercase tracking-widest">
+            <h2
+              className="text-sm font-semibold uppercase tracking-widest"
+              style={{ color: T.ink }}
+            >
               Docked Complex
             </h2>
             <a
               href={result.binding.docked_complex_url}
               download="complex.pdb"
-              className="text-xs text-green-700 hover:text-green-600 underline"
+              className="text-xs underline transition-colors"
+              style={{ color: T.tealDark }}
             >
               Download PDB
             </a>
@@ -170,15 +210,26 @@ export default function ResultsPage({ params }: { params: { jobId: string } }) {
           />
         </div>
       ) : (
-        <div className="rounded-md bg-stone-50 border border-stone-200 px-4 py-6 text-center text-xs text-stone-400">
+        <div
+          className="rounded-md px-4 py-6 text-center text-xs"
+          style={{ backgroundColor: T.cardBg, border: `1px solid ${T.border}`, color: T.inkFaint }}
+        >
           3D viewer unavailable — S3 bucket not configured or upload failed.
         </div>
       )}
 
-      {/* Citations */}
-      <div className="border-t border-stone-200 pt-6 space-y-2">
-        <p className="text-xs font-semibold text-stone-500 uppercase tracking-widest">References</p>
-        <ol className="list-decimal list-inside space-y-1.5 text-xs text-stone-500 leading-relaxed">
+      {/* ── Citations ── */}
+      <div className="pt-6 space-y-2" style={{ borderTop: `1px solid ${T.border}` }}>
+        <p
+          className="text-xs font-semibold uppercase tracking-widest"
+          style={{ color: T.inkMuted }}
+        >
+          References
+        </p>
+        <ol
+          className="list-decimal list-inside space-y-1.5 text-xs leading-relaxed"
+          style={{ color: T.inkFaint }}
+        >
           <li>
             Eberhardt, J., Santos-Martins, D., Tillack, A. F., &amp; Forli, S. (2021).{" "}
             <span className="italic">AutoDock Vina 1.2.0: New Docking Methods, Expanded Force Field, and Python Bindings.</span>{" "}

@@ -2,19 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-cream:  #FFF6DE;
+  --color-teal:   #8BDFDD;
+  --color-coral:  #F48F68;
+  --color-yellow: #FFE394;
+
+  /* Derived shades */
+  --color-teal-dark:    #5bbfbd;
+  --color-coral-dark:   #d96a44;
+  --color-cream-dark:   #f0e4c0;
+  --color-ink:          #2c2218;
+  --color-ink-muted:    #6b5c48;
+  --color-ink-faint:    #a89880;
+}
+
 @media print {
-  /* Light background for readability */
   body {
     background: #fff !important;
     color: #111 !important;
   }
 
-  /* Hide interactive chrome */
   .no-print {
     display: none !important;
   }
 
-  /* Override dark card/panel backgrounds */
   [class*="bg-gray-"],
   [class*="bg-indigo-"],
   [class*="bg-red-"],
@@ -24,19 +36,15 @@
     border-color: #d1d5db !important;
   }
 
-  /* Dark text everywhere */
   [class*="text-gray-"],
   [class*="text-indigo-"],
   [class*="text-white"] {
     color: #111 !important;
   }
 
-  /* Keep flag text coloured */
-  [class*="text-red-"] { color: #dc2626 !important; }
+  [class*="text-red-"]    { color: #dc2626 !important; }
   [class*="text-yellow-"] { color: #ca8a04 !important; }
-  [class*="text-green-"] { color: #16a34a !important; }
 
-  /* Avoid page breaks mid-card */
   .space-y-6 > * {
     break-inside: avoid;
   }
