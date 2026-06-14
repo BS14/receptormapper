@@ -2,6 +2,16 @@
 
 import { useEffect, useState } from "react";
 
+const T = {
+  cardBg:   "#EFEFEB",
+  border:   "#D8D8D2",
+  ink:      "#2c2218",
+  inkMuted: "#6b5c48",
+  inkFaint: "#a89880",
+  teal:     "#8BDFDD",
+  tealDark: "#5bbfbd",
+};
+
 interface RcsbData {
   title: string;
   method: string;
@@ -15,8 +25,10 @@ interface RcsbData {
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <p className="text-xs font-semibold text-ink-faint uppercase tracking-widest mb-0.5">{label}</p>
-      <p className="text-sm text-ink-muted">{value}</p>
+      <p className="text-xs font-semibold uppercase tracking-widest mb-0.5" style={{ color: T.inkFaint }}>
+        {label}
+      </p>
+      <p className="text-sm" style={{ color: T.inkMuted }}>{value}</p>
     </div>
   );
 }
@@ -49,16 +61,22 @@ export default function ReceptorInfoPanel({ receptorName }: { receptorName: stri
   }, [pdbId]);
 
   return (
-    <div className="rounded-md border border-cream-dark bg-white px-5 py-4 space-y-3">
+    <div
+      className="rounded-md px-5 py-4 space-y-3"
+      style={{ backgroundColor: T.cardBg, border: `1px solid ${T.border}` }}
+    >
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-ink-muted uppercase tracking-widest">Receptor</p>
+        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: T.inkMuted }}>
+          Receptor
+        </p>
         <div className="flex items-center gap-3">
           {pdbId && (
             <a
               href={`https://www.rcsb.org/structure/${pdbId}`}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal/20 hover:bg-teal/40 border border-teal/40 text-teal-dark transition-colors"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-opacity hover:opacity-80"
+              style={{ backgroundColor: "#8BDFDD28", border: `1px solid #8BDFDD66`, color: T.tealDark }}
             >
               RCSB ↗
             </a>
@@ -66,7 +84,8 @@ export default function ReceptorInfoPanel({ receptorName }: { receptorName: stri
           {data && (
             <button
               onClick={() => setExpanded((e) => !e)}
-              className="text-xs text-ink-faint hover:text-ink-muted"
+              className="text-xs transition-colors hover:underline"
+              style={{ color: T.inkFaint }}
             >
               {expanded ? "Show less ↑" : "Show more ↓"}
             </button>
@@ -77,7 +96,7 @@ export default function ReceptorInfoPanel({ receptorName }: { receptorName: stri
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
         <InfoRow label="PDB ID" value={pdbId ?? receptorName} />
         {loading && (
-          <p className="text-xs text-ink-faint col-span-3">Loading RCSB data…</p>
+          <p className="text-xs col-span-3" style={{ color: T.inkFaint }}>Loading RCSB data…</p>
         )}
         {data && (
           <>
@@ -91,7 +110,10 @@ export default function ReceptorInfoPanel({ receptorName }: { receptorName: stri
       </div>
 
       {expanded && data && (
-        <div className="border-t border-cream-dark pt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+        <div
+          className="pt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3"
+          style={{ borderTop: `1px solid ${T.border}` }}
+        >
           {data.title && (
             <div className="col-span-2 sm:col-span-3">
               <InfoRow label="Title" value={data.title} />
