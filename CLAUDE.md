@@ -2,15 +2,22 @@
 
 ## What this project is
 
-ReceptorMapper is a drug-target interaction prediction platform for computational
-chemists and drug discovery researchers. A researcher submits a SMILES string and
-a protein target sequence. The platform runs pre-trained deep learning models to
-predict binding affinity, off-target effects, cancer cell line sensitivity, and
-ADMET properties. Results are returned as structured JSON and rendered as charts
-and tables in the Next.js frontend.
+ReceptorMapper is a **protein–ligand molecular docking platform**. A researcher
+uploads a **receptor structure (PDB)** and a **ligand file (SDF / MOL / MOL2)**,
+and the platform runs **AutoDock Vina** to predict how the ligand binds. It
+returns binding affinity (ΔG / pIC50 / IC50), a ranked set of poses, pose-quality
+validation via RMSD against the co-crystallized ligand, a native re-docking
+selectivity comparison, safety/quality flags, and a 3D docked complex rendered
+with 3Dmol.js.
 
-No AI interpretation/narrative is included in this version. Results are numbers
-and structured data only.
+No AI interpretation/narrative is included. Results are numbers and structured
+data only.
+
+> History: this repo previously implemented a SMILES + protein-sequence deep
+> learning predictor on AWS Lambda (off-target / cell-line / ADMET / Tanimoto).
+> That design has been replaced by the FastAPI docking pipeline described here.
+> Some legacy modules still exist in the tree (see "Legacy modules" below) but
+> are **not** wired into the live pipeline.
 
 ---
 
@@ -19,44 +26,49 @@ and structured data only.
 ```
 receptormapper/
 ├── CLAUDE.md                  ← you are here
-├── frontend/                  ← Next.js 14 app (App Router)
-│   ├── app/
-│   │   ├── page.tsx           ← home / submission form
-│   │   ├── results/[jobId]/   ← results page
-│   │   └── api/
-│   │       ├── predict/
-│   │       │   └── route.ts   ← POST: create job, invoke Lambda
-│   │       └── predict/[jobId]/
-│   │           └── route.ts   ← GET: poll job status from DynamoDB
-│   ├── components/
-│   │   ├── SMILESInput.tsx
-│   │   ├── BindingAffinityCard.tsx
-│   │   ├── OffTargetTable.tsx
-│   │   ├── CellLineSensitivityGrid.tsx
-│   │   └── ADMETPanel.tsx
-│   ├── lib/
-│   │   ├── dynamo.ts          ← DynamoDB client (reads env vars)
-│   │   └── lambda.ts          ← Lambda invocation helper
-│   └── .env.local             ← local env vars (never commit)
+├── Makefile                   ← dev/prod/test/inspection targets
+├── docker-compose.dev.yml     ← local: DynamoDB-local + API + frontend
+├── docker-compose.prod.yml    ← EC2: API (uvicorn) + Nginx, real AWS
+├── infra/                     ← Terraform (VPC, EC2, IAM, S3, EIP, user_data)
 │
-└── lambda/                    ← Python Lambda (Docker image)
-    ├── Dockerfile
-    ├── handler.py             ← entry point
-    ├── cache.py               ← DynamoDB cache check and write
-    ├── validator.py           ← SMILES + protein sequence validation
-    ├── binding.py             ← DeepPurpose binding affinity prediction
-    ├── offtarget.py           ← 47-protein off-target panel scoring
-    ├── cellline.py            ← GDSC2 cancer cell line sensitivity
-    ├── admet.py               ← RDKit ADMET and Lipinski Ro5
-    ├── tanimoto.py            ← training similarity + confidence adjustment
-    ├── assembler.py           ← merge all outputs, apply safety flags
-    ├── models/
-    │   ├── MPNN_CNN_BindingDB/ ← pre-downloaded model weights (baked in image)
-    │   └── offtarget_panel/
-    │       └── panel.json     ← 47 protein sequences with names and families
-    └── scripts/
-        ├── create_tables.py   ← create local DynamoDB tables (run once)
-        └── seed_cache.py      ← pre-populate cache with 20 known drug-target pairs
+├── api/                       ← FastAPI docking backend (Python 3.11)
+│   ├── main.py                ← app: upload handling, S3, background orchestration
+│   ├── entrypoint.sh          ← local mode: create table + seed cache, then uvicorn
+│   ├── Dockerfile             ← installs Vina, Open Babel, fpocket + Python deps
+│   ├── requirements.txt
+│   ├── scripts/
+│   │   ├── create_tables.py   ← create the single DynamoDB table (idempotent)
+│   │   └── seed_cache.py      ← pre-populate cache for demos
+│   ├── tests/                 ← pytest: test_api.py, test_integration.py
+│   ├── models/offtarget_panel/panel.json   ← legacy, not used by docking
+│   └── src/
+│       ├── binding.py         ← AutoDock Vina pipeline (prep → box → dock → poses)
+│       ├── rmsd.py            ← native-ligand extraction + pose RMSD / Tanimoto
+│       ├── assembler.py       ← merge binding result + generate safety flags
+│       ├── cache.py           ← DynamoDB job lifecycle + content-hash cache
+│       └── admet.py / offtarget.py / cellline.py / tanimoto.py /
+│           validator.py / handler.py   ← LEGACY (see below)
+│
+└── frontend/                  ← Next.js 14 app (App Router)
+    ├── app/
+    │   ├── page.tsx           ← upload / submission form
+    │   ├── results/[jobId]/   ← results page (polls every 2s)
+    │   └── api/
+    │       ├── predict/route.ts          ← POST proxy → FastAPI /predict
+    │       ├── predict/[jobId]/route.ts  ← GET poll proxy → FastAPI /jobs/{id}
+    │       └── jobs/route.ts             ← GET recent jobs proxy
+    ├── components/
+    │   ├── MoleculeViewer.tsx ← 3Dmol.js viewer for the docked complex
+    │   ├── FileDropzone.tsx
+    │   ├── BindingAffinityCard.tsx
+    │   ├── RmsdPanel.tsx
+    │   ├── LigandInfoPanel.tsx
+    │   └── ReceptorInfoPanel.tsx
+    └── lib/
+        ├── types.ts           ← result/job TypeScript types
+        ├── lambda.ts          ← FastAPI fetch helpers (name is historical)
+        ├── dynamo.ts
+        └── generatePDF.ts
 ```
 
 ---
@@ -64,355 +76,346 @@ receptormapper/
 ## Architecture
 
 ```
-Browser → Next.js (Vercel) → DynamoDB (job created, status = queued)
-                           → Lambda invoked async
-                           → poll GET /api/predict/[jobId] every 2s
-
-Lambda → cache.py checks DynamoDB cache by sha256(smiles+target+model)
-       → HIT: write job complete, return immediately
-       → MISS: run all 5 modules in sequence, assemble, write to cache + job
+Browser → Next.js (Vercel) → Next.js API routes (thin proxies, NO AWS creds)
+                                ├─ POST /api/predict        → FastAPI POST /predict (multipart)
+                                ├─ GET  /api/predict/[id]   → FastAPI GET  /jobs/{id}
+                                └─ GET  /api/jobs           → FastAPI GET  /jobs
+                                      │
+                                      ▼
+                              FastAPI on EC2 (behind Nginx)
+                                ├─ cache.py checks DynamoDB by sha256(receptor+ligand)
+                                │     HIT  → return cached result immediately
+                                │     MISS → create job (status=queued), dock in background task
+                                ├─ binding.py runs the Vina pipeline
+                                ├─ rmsd.py validates the pose vs native ligand
+                                ├─ assembler.py merges + flags
+                                └─ writes job + cache to DynamoDB, complex PDB to S3
 ```
 
-### Trigger logic
+### Trigger / job lifecycle
 
-- Vercel API route checks DynamoDB cache BEFORE invoking Lambda
-- If cache hit: return result synchronously, no Lambda invocation
-- If cache miss: create job record, invoke Lambda async, return job_id
-- Frontend polls `GET /api/predict/[jobId]` every 2 seconds until status = complete
+- `POST /predict` accepts `multipart/form-data` and returns **`202`** immediately
+  with a **server-generated** `job_id`. Docking runs in a FastAPI background task.
+- The frontend polls `GET /api/predict/[jobId]` every **2 seconds** until
+  `status = complete` (or `failed`).
+- Results are cached by `sha256(receptor_bytes + ligand_bytes)`. Re-submitting the
+  same files returns instantly from cache (24 h TTL).
+- The docked-complex S3 key is stored in the result; a **fresh presigned URL** is
+  generated on every `GET /jobs/{id}` so links never go stale.
 
-### DynamoDB tables
+### DynamoDB — single-table design
 
-**prediction_jobs**
-- PK: `job_id` (uuid string)
-- Attributes: `smiles`, `target`, `model`, `status` (queued/running/complete/failed),
-  `result` (JSON string), `created_at`, `completed_at`, `error`
-- GSI: `user_id-index` on `user_id` — lists all jobs per user
+One table (`receptormapper_jobs`) holds both jobs and the cache via a composite key:
 
-**prediction_cache**
-- PK: `cache_key` (sha256 hex string)
-- Attributes: `result` (JSON string), `created_at`, `ttl` (Unix timestamp, 30 days)
-- TTL enabled on `ttl` attribute
+| Item type | PK | SK | Key attributes |
+|-----------|----|----|----------------|
+| Job | `JOB#{job_id}` | `METADATA` | `status` (queued/running/complete/failed), `job_name`, `result` (JSON), `created_at`, `completed_at`, `ttl` |
+| Cache | `CACHE#{sha256}` | `RESULT` | `result` (JSON), `created_at`, `ttl` |
+
+Both use a **24 h TTL** on the `ttl` attribute.
+
+### S3
+
+Docked complexes (receptor + poses + native ligand as a multi-model PDB) are
+uploaded to the `S3_BUCKET`. Access is via presigned URLs minted per request.
 
 ---
 
-## Lambda modules
+## The docking pipeline (api/src/binding.py)
 
-### handler.py
-Entry point. Validates inputs, checks cache, routes to full prediction if miss,
-calls assembler, writes to DynamoDB.
+1. **Ligand prep** — uploaded SDF/MOL/MOL2 → PDBQT via **Open Babel** (adds
+   hydrogens, Gasteiger charges). A SMILES path (**RDKit** ETKDG embed + **Meeko**)
+   exists as a fallback.
+2. **Receptor prep** — clean PDB (strip waters, alt-confs, `CONECT`), then convert
+   to PDBQT via Open Babel.
+3. **Binding-site / box detection** — prefer the native co-crystal ligand centroid;
+   else fall back to **fpocket**; else a whole-protein box.
+4. **Docking** — **AutoDock Vina** (`--exhaustiveness 4 --num_modes 5`) inside the
+   box. The receptor is trimmed to residues near the site first.
+5. **Pose analysis** — extract the best pose, compute per-pose pocket distance and
+   RMSD (`rmsd.py`), re-dock the native ligand for a ΔΔG selectivity comparison.
+6. **Complex export** — merge receptor + poses (+ native) into a multi-model PDB,
+   upload to S3.
+7. **Fallback** — if docking fails, return a lightweight RDKit-descriptor-based
+   pIC50 estimate.
 
-### cache.py
-- `get(smiles, target, model)` → dict or None
-- `set(smiles, target, model, result)` → None
-- `write_job_complete(job_id, result)` → None
-- `write_job_failed(job_id, message)` → None
+External binaries (installed in `api/Dockerfile`, not in `requirements.txt`):
+**AutoDock Vina**, **Open Babel**, **fpocket**.
 
-### validator.py
-- `validate(smiles, target)` → tuple[bool, str | None]
-- Uses RDKit `Chem.MolFromSmiles` for SMILES validation
-- Checks protein sequence for valid amino acid characters (ACDEFGHIKLMNPQRSTVWY)
+---
 
-### binding.py
-- `predict(smiles, target, model_name)` → dict
-- Returns: `pIC50`, `delta_g`, `ic50_nM`, `confidence`, `strength`
-- Uses DeepPurpose MPNN-CNN model trained on BindingDB
-- Model loaded once at container startup (global `_model` variable)
+## Key source modules (live pipeline)
 
-### offtarget.py
-- `score(smiles, model_name)` → list[dict]
-- Scores against 47 proteins from `models/offtarget_panel/panel.json`
-- Returns list sorted by pIC50 descending
-- Each item: `name`, `family`, `pic50`, `risk` (high/medium/low), `flag`
+### api/main.py
+FastAPI app. Defines `GET /health`, `POST /predict` (multipart upload, generates
+`job_id`, schedules background task), `GET /jobs/{job_id}` (poll + presign), and
+`GET /jobs` (recent completed jobs). Handles file I/O and S3.
 
-### cellline.py
-- `predict(smiles, panel)` → list[dict]
-- Panel options: `lung` (12 lines), `breast` (10 lines), `pan` (20 lines)
-- Returns list of `{name, ic50}` sorted by IC50 ascending
+### api/src/binding.py
+The full Vina docking pipeline (prep, box detection, dock, pose extraction, native
+re-docking, complex assembly, descriptor fallback). ~620 lines — the core of the app.
 
-### admet.py
-- `calculate(smiles)` → dict
-- Uses RDKit Descriptors: MW, LogP, HBD, HBA, TPSA, rotatable bonds, aromatic rings
-- Returns `ro5_violations` count and `drug_like` boolean (≤1 violation)
+### api/src/rmsd.py
+Extracts the native co-crystallized ligand from the receptor PDB, classifies
+self- vs cross-docking (Tanimoto on connectivity), and computes heavy-atom pose
+RMSD with a success threshold.
 
-### tanimoto.py
-- `similarity(smiles, model_name)` → dict
-- Loads pre-computed Morgan fingerprints from `models/MPNN_CNN_BindingDB/train_fps.pkl`
-- Returns `max_tanimoto`, `mean_top10`, `adj_confidence`, `extrapolation_risk`
-- Confidence thresholds: ≥0.7 → 0.90, ≥0.5 → 0.75, ≥0.3 → 0.60, <0.3 → 0.40
+### api/src/assembler.py
+`build(...)` merges the binding result and generates the `flags` list (very strong
+binding, low docking confidence, non-physical ΔG, high self-docking RMSD) plus the
+`summary`.
 
-### assembler.py
-- `build(binding, offtarget, cellline, admet, tanimoto, smiles, target)` → dict
-- Overrides binding confidence with tanimoto adj_confidence
-- Generates `flags` list for: hERG, CYP3A4, extrapolation risk, Ro5 violations
-- Returns full result dict with `binding`, `offtarget`, `cellline`, `admet`,
-  `tanimoto`, `flags`, `summary`
+### api/src/cache.py
+DynamoDB single-table access: content-hash cache get/set, `create_job`,
+`write_job_complete`, `write_job_failed`, recent-jobs query.
+
+### Legacy modules (NOT used by the docking pipeline)
+`api/src/admet.py`, `offtarget.py`, `cellline.py`, `tanimoto.py`, `validator.py`,
+`handler.py`, and `models/offtarget_panel/panel.json` remain from the earlier
+SMILES/sequence design. Do not assume they are on the request path — `main.py`
+only imports `binding`, `rmsd`, `assembler`, and `cache`. Remove or ignore them
+unless explicitly asked to revive that functionality.
 
 ---
 
 ## Local development setup
 
+Everything runs through Docker Compose. Local DynamoDB runs in a container; the
+API and frontend are built from their Dockerfiles.
+
 ### Prerequisites
 - Docker Desktop running
-- Node.js 18+
-- Python 3.11+
-- AWS CLI configured (any region, fake credentials fine for local)
+- Make
+- (Node 18+ / Python 3.11+ only needed if running pieces outside Docker)
 
-### First-time setup
+### Run it
 
 ```bash
-# 1. Clone and install frontend deps
-cd frontend && npm install
+make up            # DynamoDB-local + API + frontend (foreground)
+make up-d          # detached
 
-# 2. Copy env template
-cp frontend/.env.example frontend/.env.local
-# Edit .env.local — see env vars section below
+make test-health   # GET /health smoke test
 
-# 3. Build Lambda image
-docker build -t receptormapper-lambda ./lambda
+# Inspect local DynamoDB
+make list-tables
+make scan-jobs
+make scan-cache
 
-# 4. Start local DynamoDB
-docker run -d --name dynamo-local -p 8000:8000 amazon/dynamodb-local
+# Logs
+make logs          # all services
+make logs-api
+make logs-frontend
 
-# 5. Create tables
-cd lambda && python scripts/create_tables.py
-
-# 6. Seed cache with known drug-target pairs (optional but recommended for demo)
-python scripts/seed_cache.py
+make down          # tear everything down
 ```
 
-### Running locally (4 terminals)
+Local URLs:
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:3000 |
+| API | http://localhost:8080 (container listens on 8000, published as 8080) |
+| API docs (Swagger) | http://localhost:8080/docs |
+| DynamoDB local | http://localhost:8000 |
+
+In local mode (`AWS_ENDPOINT_URL` is set), `api/entrypoint.sh` automatically runs
+`create_tables.py` and `seed_cache.py` on container start.
+
+### Test the API directly
 
 ```bash
-# Terminal 1 — DynamoDB (if not already running)
-docker start dynamo-local
+# Health
+curl http://localhost:8080/health
 
-# Terminal 2 — Lambda container
-docker run --rm -p 9000:8080 \
-  -e AWS_REGION=us-east-1 \
-  -e AWS_ACCESS_KEY_ID=fake \
-  -e AWS_SECRET_ACCESS_KEY=fake \
-  -e AWS_ENDPOINT_URL=http://host.docker.internal:8000 \
-  -e DYNAMODB_CACHE_TABLE=prediction_cache \
-  -e DYNAMODB_JOBS_TABLE=prediction_jobs \
-  receptormapper-lambda
+# Submit a docking job (multipart upload)
+curl -X POST http://localhost:8080/predict \
+  -F "receptor_pdb=@/path/to/receptor.pdb" \
+  -F "ligand_file=@/path/to/ligand.sdf" \
+  -F "job_name=EGFR + Erlotinib"
+# → { "status": "queued", "job_id": "..." }
 
-# Terminal 3 — Next.js frontend
-cd frontend && npm run dev
-
-# Terminal 4 — Claude Code (this session)
-cd receptormapper && claude
-```
-
-### Test Lambda directly
-
-```bash
-curl -X POST http://localhost:9000/2015-03-31/functions/function/invocations \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "job_id": "test-001",
-    "smiles": "CC(=O)Nc1ccc(O)cc1",
-    "target_sequence": "MKKFFDSRREQGGSGLGSGSSGGGGSTSGLGSGYGSGGSGPSGNNQNQG",
-    "model": "MPNN_CNN_BindingDB_IC50",
-    "cell_panel": "lung"
-  }'
-```
-
-### Test DynamoDB locally
-
-```bash
-aws dynamodb list-tables \
-  --endpoint-url http://localhost:8000 \
-  --region us-east-1
-
-aws dynamodb scan \
-  --table-name prediction_jobs \
-  --endpoint-url http://localhost:8000 \
-  --region us-east-1
+# Poll until complete
+curl http://localhost:8080/jobs/<job_id>
 ```
 
 ---
 
 ## Environment variables
 
-### frontend/.env.local (local dev)
+### API (docker-compose.dev.yml / .prod.yml on EC2)
 
-```bash
-# DynamoDB — points at local container
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=fake
-AWS_SECRET_ACCESS_KEY=fake
-AWS_ENDPOINT_URL=http://localhost:8000
-DYNAMODB_JOBS_TABLE=prediction_jobs
-DYNAMODB_CACHE_TABLE=prediction_cache
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `AWS_REGION` | yes | `us-east-1` | AWS region |
+| `DYNAMODB_TABLE` | no | `receptormapper_jobs` | Single jobs + cache table |
+| `S3_BUCKET` | no | `receptormapper-docked-structures` | Bucket for docked complex PDBs |
+| `AWS_ENDPOINT_URL` | local only | — | Points boto3 at local DynamoDB (`http://dynamodb-local:8000`) |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | local only | — | Fake values locally; **not set in prod** (instance IAM role) |
 
-# Lambda — points at local container
-LAMBDA_ENDPOINT=http://localhost:9000/2015-03-31/functions/function/invocations
-LAMBDA_MODE=local
+### Frontend (Vercel)
 
-# Auth (optional in dev)
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=dev-secret-change-in-prod
-```
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `FASTAPI_URL` | yes | Base URL of the FastAPI backend on EC2 |
 
-### Vercel (production)
-
-```bash
-AWS_REGION=ap-south-1
-AWS_ACCESS_KEY_ID=<real IAM user key>
-AWS_SECRET_ACCESS_KEY=<real IAM user secret>
-DYNAMODB_JOBS_TABLE=prediction_jobs
-DYNAMODB_CACHE_TABLE=prediction_cache
-# No AWS_ENDPOINT_URL in production — SDK uses real AWS
-
-LAMBDA_FUNCTION_NAME=receptormapper-predict
-LAMBDA_MODE=aws
-# Lambda uses IAM role — no keys needed in Lambda itself
-
-NEXTAUTH_URL=https://receptormapper.vercel.app
-NEXTAUTH_SECRET=<generate with: openssl rand -base64 32>
-```
+The frontend never talks to DynamoDB or S3 directly — all access is proxied
+through FastAPI. **Vercel needs no AWS credentials.**
 
 ---
 
-## Key design decisions
+## Deployment
 
-**Why DynamoDB over Aurora PostgreSQL:**
-All data access is key-value. Every query is get-by-job-id or get-by-cache-key.
-No joins, no aggregations, no relational constraints. DynamoDB free tier covers
-the entire hackathon with zero cost.
+### Backend — EC2 via Terraform (`infra/`)
 
-**Why Docker image over zip Lambda:**
-DeepPurpose + PyTorch + RDKit exceeds the 250MB Lambda zip limit. Docker images
-support up to 10GB. Model weights are baked into the image at build time — no
-runtime download, no cold start penalty from fetching weights.
+Provisions a VPC, an Ubuntu 24.04 EC2 instance with an IAM instance profile
+(DynamoDB + S3), a security group (80/443), an S3 bucket, and an Elastic IP.
+`user_data.sh.tpl` bootstraps the instance.
 
-**Why model weights baked into image:**
-Downloading 150–300MB of model weights on Lambda cold start would cause 30–60s
-timeouts. Baking into the image means first invocation after container startup
-only loads from local disk (~2s) not from network.
+```bash
+cd infra
+cp terraform.tfvars.example terraform.tfvars   # project, region, az, instance_type, dynamodb_table, s3_bucket
+terraform init
+terraform apply
+```
 
-**Why cache before Lambda invocation:**
-Lambda invocation costs money and takes 2–5s even when warm. The Next.js API
-route checks DynamoDB cache first. If the same smiles+target+model was computed
-before, the result is returned in <50ms with zero Lambda cost.
+On the instance, the API stack runs from `docker-compose.prod.yml`:
 
-**Sync vs async triggering:**
-Cache hits return synchronously from the Next.js API route.
-Cache misses invoke Lambda asynchronously — frontend polls every 2s.
-This avoids Vercel's 10s serverless function timeout for slow predictions.
+```bash
+git clone https://github.com/BS14/receptormapper.git && cd receptormapper
+# Set AWS_REGION (+ optional DYNAMODB_TABLE, S3_BUCKET) in .env
+make ssl-self-signed     # or place real certs at nginx/ssl/cert.pem + key.pem
+make prod-api            # FastAPI (8000 internal) + Nginx (80/443)
+make prod-logs-api
+make prod-logs-nginx
+```
 
-**Module-per-concern in Lambda:**
-Each prediction type is a separate Python module. This makes it easy to swap
-models (e.g. replace binding.py with a better model) without touching other
-modules. The assembler is the only file that knows about all outputs.
+Because the instance has an IAM role, **no AWS keys are needed in production** —
+boto3 uses the instance metadata service.
+
+### Frontend — Vercel
+
+```bash
+cd frontend && npx vercel --prod
+```
+
+Set `FASTAPI_URL` = `https://<EC2_PUBLIC_IP_OR_DOMAIN>` in the Vercel dashboard,
+then redeploy.
+
+---
+
+## Result schema (what FastAPI returns)
+
+`GET /jobs/{id}` returns `{ status, meta, result }` when complete:
+
+```json
+{
+  "status": "complete",
+  "meta": { "job_name": "EGFR + Erlotinib", "job_id": "550e8400-..." },
+  "result": {
+    "binding": {
+      "pIC50": 7.3,
+      "delta_g": -9.9,
+      "ic50_nM": 50.1,
+      "confidence": 0.90,
+      "strength": "strong",
+      "docked_complex_key": "550e8400-.../assets/complex.pdb",
+      "docked_complex_url": "https://<bucket>.s3.amazonaws.com/...signed...",
+      "rmsd": {
+        "available": true,
+        "native_resname": "AQ4",
+        "mode": "self_docking",
+        "tanimoto": 0.94,
+        "pocket_distance_A": 0.82,
+        "ligand_rmsd_A": 1.31,
+        "success": true
+      },
+      "native_docking": {
+        "delta_g": -10.2, "pIC50": 7.5, "ic50_nM": 31.6,
+        "delta_delta_g": 0.3, "selectivity": "similar"
+      },
+      "poses": [
+        { "rank": 1, "delta_g": -9.9, "pic50": 7.3, "ic50_nM": 50.1,
+          "pocket_distance_A": 0.82, "rmsd_A": 1.31 }
+      ]
+    },
+    "flags": [
+      { "type": "potency", "level": "info",
+        "message": "Very strong predicted binding (ΔG -9.9 kcal/mol)..." }
+    ],
+    "summary": { "total_flags": 1 },
+    "inputs": {
+      "job_id": "550e8400-...", "receptor_name": "egfr",
+      "ligand_name": "erlotinib", "smiles": "C#Cc1..."
+    }
+  }
+}
+```
+
+The TypeScript mirror of this lives in `frontend/lib/types.ts` — keep them in sync.
 
 ---
 
 ## Common tasks for Claude Code
 
 ```
-"Add a new protein to the off-target panel"
-→ Edit lambda/models/offtarget_panel/panel.json
-  Add: { "name": "...", "family": "...", "sequence": "..." }
+"Change Vina exhaustiveness / number of poses"
+→ api/src/binding.py — the Vina invocation (--exhaustiveness, --num_modes)
 
-"Add a new cell line panel"
-→ Edit lambda/cellline.py
-  Add the line names to the PANELS dict
+"Adjust the docking box size / site detection"
+→ api/src/binding.py — box-detection logic (native centroid → fpocket → whole protein)
 
-"Change the hERG risk threshold"
-→ Edit lambda/offtarget.py _risk() function
-  Currently: pic50 >= 5.5 = high, >= 4.5 = medium
+"Change the RMSD success threshold or self/cross-docking logic"
+→ api/src/rmsd.py
 
-"Add a new ADMET property"
-→ Edit lambda/admet.py calculate() function
-  Import the RDKit descriptor and add to return dict
-  Add the field to the ADMETPanel.tsx component
+"Add or change a safety flag"
+→ api/src/assembler.py build() — append to the flags list,
+  then surface it in frontend/components/RmsdPanel.tsx or BindingAffinityCard.tsx
 
-"Rebuild Lambda after Python changes"
-→ docker build -t receptormapper-lambda ./lambda
-  docker stop $(docker ps -q --filter ancestor=receptormapper-lambda)
-  docker run ... (same command as above)
+"Change the cache TTL"
+→ api/src/cache.py — the ttl value written on job/cache items (currently 24h)
+
+"Add a field to the result"
+→ api/src/assembler.py (produce it) + frontend/lib/types.ts (type it)
+  + the relevant component to render it
+
+"Rebuild the API after Python changes"
+→ make down && make up   (rebuilds the api image)
 
 "Reset local DynamoDB"
-→ docker stop dynamo-local && docker rm dynamo-local
-  docker run -d --name dynamo-local -p 8000:8000 amazon/dynamodb-local
-  cd lambda && python scripts/create_tables.py
+→ make down && make up    (entrypoint.sh recreates the table + seeds cache)
 
-"Run only the frontend (no Lambda)"
-→ Set LAMBDA_MODE=mock in .env.local
-  The API route returns a fixture result instead of invoking Lambda
-  Useful for pure UI work without running Docker
+"Run backend tests"
+→ pytest in api/tests  (test_api.py, test_integration.py)
+
+"Edit a Next.js API proxy"
+→ frontend/app/api/predict/route.ts (POST),
+  frontend/app/api/predict/[jobId]/route.ts (poll),
+  frontend/app/api/jobs/route.ts (recent jobs)
+  — they forward to FASTAPI_URL; no AWS access here
 ```
 
 ---
 
-## Result schema (what Lambda returns)
+## Key design decisions
 
-```json
-{
-  "binding": {
-    "pIC50": 6.2,
-    "delta_g": -8.4,
-    "ic50_nM": 630.0,
-    "confidence": 0.81,
-    "strength": "moderate"
-  },
-  "offtarget": [
-    { "name": "hERG", "family": "Ion channel", "pic50": 4.1,
-      "risk": "low", "flag": false },
-    { "name": "CYP3A4", "family": "Cytochrome P450", "pic50": 3.8,
-      "risk": "low", "flag": false }
-  ],
-  "cellline": [
-    { "name": "A549", "ic50": 0.31 },
-    { "name": "H1299", "ic50": 0.58 }
-  ],
-  "admet": {
-    "mw": 151.2, "logP": 0.46, "hbd": 2, "hba": 2,
-    "tpsa": 49.3, "rotatable_bonds": 2, "aromatic_rings": 1,
-    "ro5_violations": 0, "drug_like": true
-  },
-  "tanimoto": {
-    "max_tanimoto": 0.74, "mean_top10": 0.61,
-    "adj_confidence": 0.90, "extrapolation_risk": false
-  },
-  "flags": [
-    {
-      "type": "cardiac",
-      "level": "danger",
-      "message": "hERG binding pIC50 5.8 — cardiac liability. Patch-clamp assay recommended."
-    }
-  ],
-  "summary": {
-    "total_flags": 1,
-    "high_risk_ots": 1,
-    "sensitive_lines": 4
-  }
-}
-```
+**FastAPI on EC2 instead of Lambda:** AutoDock Vina, Open Babel, and fpocket are
+native binaries, and docking jobs run longer than is comfortable on Lambda /
+Vercel functions. A long-lived FastAPI server with background tasks fits better
+than short-lived serverless.
 
----
+**Single DynamoDB table:** all access is key-value (get-by-job-id, get-by-cache-key,
+recent-jobs scan). One composite-key table holds both jobs and cache with a shared
+TTL — no joins, no second table.
 
-## Useful SMILES strings for testing
+**Content-hash cache:** keyed on `sha256(receptor_bytes + ligand_bytes)`, so the
+exact same upload pair returns instantly without re-docking.
 
-| Molecule | SMILES | Expected behaviour |
-|---|---|---|
-| Paracetamol | `CC(=O)Nc1ccc(O)cc1` | Moderate binder, drug-like, low flags |
-| Erlotinib | `C#Cc1cccc(Nc2ncnc3cc(OCC)c(OCC)cc23)c1` | Strong EGFR binder |
-| Imatinib | `Cc1ccc(NC(=O)c2ccc(CN3CCN(C)CC3)cc2)cc1Nc1nccc(-c2cccnc2)n1` | Strong ABL1 binder |
-| Colchicine | `COc1cc2c(c(OC)c1OC)-c1ccc(OC)c(=O)cc1CC2NC(C)=O` | High affinity, hERG flag |
-| Aspirin | `CC(=O)Oc1ccccc1C(=O)O` | Weak binder, drug-like |
+**202 + background task + polling:** `POST /predict` returns immediately; the
+frontend polls every 2s. This avoids Vercel's serverless timeout for multi-second
+docking runs.
 
----
+**Presign on read:** the S3 key is stored, but a fresh presigned URL is generated
+on each `GET /jobs/{id}`, so the 3D viewer never gets an expired link.
 
-## Hackathon submission checklist
-
-- [ ] Lambda builds without errors: `docker build -t receptormapper-lambda ./lambda`
-- [ ] Local end-to-end works: submit SMILES → get result in browser
-- [ ] Cache works: second submission of same input returns instantly
-- [ ] Vercel deployment live: `vercel --prod`
-- [ ] Lambda deployed to ECR and AWS Lambda
-- [ ] DynamoDB tables created in production AWS account
-- [ ] 5 demo inputs pre-seeded in production cache
-- [ ] README.md written with architecture diagram link
-- [ ] Demo video recorded (2 minutes max)
+**No AWS creds on Vercel:** the frontend only knows `FASTAPI_URL`. All AWS access
+happens on EC2 through the instance IAM role.
