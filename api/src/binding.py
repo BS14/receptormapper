@@ -225,6 +225,37 @@ def _whole_protein_box(pdb_path: str) -> dict:
 
 # ── Vina docking ──────────────────────────────────────────────────────────────
 
+def _detect_vina_cpus() -> int:
+    """Pick how many CPU cores Vina should use.
+
+    Applies the "n-1" principle: use all available cores except one, which is
+    left free for the web server / OS so the box stays responsive. This scales
+    automatically when the instance is resized to a larger core count.
+
+    Detection order:
+      1. ``VINA_CPU`` env var (explicit override; clamped to >= 1).
+      2. ``os.sched_getaffinity(0)`` — the cores this process is actually
+         allowed to run on (respects cgroup/container CPU pinning).
+      3. ``os.cpu_count()`` as a final fallback.
+    """
+    override = os.environ.get("VINA_CPU")
+    if override:
+        try:
+            return max(1, int(override))
+        except ValueError:
+            logger.warning("Invalid VINA_CPU=%r — falling back to auto-detect", override)
+
+    try:
+        available = len(os.sched_getaffinity(0))  # type: ignore[attr-defined]
+    except AttributeError:
+        # sched_getaffinity is Linux-only; fall back to logical core count.
+        available = os.cpu_count() or 1
+
+    cpus = max(1, available - 1)
+    logger.info("Vina CPU detection: %d core(s) available → using %d (n-1)", available, cpus)
+    return cpus
+
+
 def _run_vina(
     receptor_pdbqt: str,
     ligand_pdbqt: str,
@@ -247,7 +278,7 @@ def _run_vina(
         "--out", out_path,
         "--exhaustiveness", "4",
         "--num_modes", "5",
-        "--cpu", "1",
+        "--cpu", str(_detect_vina_cpus()),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
     logger.debug("Vina stdout: %s", result.stdout)
