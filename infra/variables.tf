@@ -19,7 +19,7 @@ variable "project" {
 variable "instance_type" {
   description = "EC2 instance type (t3.large minimum — PyTorch needs 4 GB RAM)"
   type        = string
-  default     = "t3.large"
+  default     = "c6a.xlarge"
 }
 
 variable "dynamodb_table" {
